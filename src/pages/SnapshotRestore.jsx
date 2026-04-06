@@ -12,6 +12,7 @@ import { RequiredField } from "../forms/RequiredField";
 import { RequiredNumberField } from "../forms/RequiredNumberField";
 import { errorAlert } from "../utils/uiutil";
 import { GoBackButton } from "../components/GoBackButton";
+import { reportRestore } from "../utils/vaultkeeperReport";
 import PropTypes from "prop-types";
 
 export class SnapshotRestoreInternal extends Component {
@@ -80,14 +81,24 @@ export class SnapshotRestoreInternal extends Component {
       };
     }
 
+    const restorePath = dst;
+    const snapshotId = this.props.params.oid;
+
+    // 복원 시작 보고 (best-effort)
+    reportRestore({ snapshotId, restorePath, status: "running" });
+
     axios
       .post("/api/v1/restore", req)
       .then((result) => {
+        // 복원 task 시작 성공 보고
+        reportRestore({ snapshotId, restorePath, status: "success" });
         this.setState({
           restoreTask: result.data.id,
         });
       })
       .catch((error) => {
+        // 복원 실패 보고
+        reportRestore({ snapshotId, restorePath, status: "failed", errorMessage: error.message });
         errorAlert(error);
       });
   }

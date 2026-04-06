@@ -28,6 +28,7 @@ export default class App extends Component {
       isFetching: false,
       repoDescription: "",
       isRepositoryConnected: false,
+      simplifyMode: localStorage.getItem("simplifyMode") !== "false",
     };
 
     this.fetchTaskSummary = this.fetchTaskSummary.bind(this);
@@ -107,8 +108,16 @@ export default class App extends Component {
     });
   }
 
+  toggleSimplifyMode = () => {
+    this.setState((prev) => {
+      const next = !prev.simplifyMode;
+      localStorage.setItem("simplifyMode", String(next));
+      return { simplifyMode: next };
+    });
+  };
+
   render() {
-    const { uiPrefs, runningTaskCount, isRepositoryConnected } = this.state;
+    const { uiPrefs, runningTaskCount, isRepositoryConnected, simplifyMode } = this.state;
 
     return (
       <Router>
@@ -132,17 +141,19 @@ export default class App extends Component {
                       Snapshots
                     </NavLink>
                   </span>
-                  <span className="d-inline-block" data-toggle="tooltip" title="Repository is not connected">
-                    <NavLink
-                      data-testid="tab-policies"
-                      title=""
-                      data-title="Policies"
-                      className={isRepositoryConnected ? "nav-link" : "nav-link disabled"}
-                      to="/policies"
-                    >
-                      Policies
-                    </NavLink>
-                  </span>
+                  {!simplifyMode && (
+                    <span className="d-inline-block" data-toggle="tooltip" title="Repository is not connected">
+                      <NavLink
+                        data-testid="tab-policies"
+                        title=""
+                        data-title="Policies"
+                        className={isRepositoryConnected ? "nav-link" : "nav-link disabled"}
+                        to="/policies"
+                      >
+                        Policies
+                      </NavLink>
+                    </span>
+                  )}
                   <span className="d-inline-block" data-toggle="tooltip" title="Repository is not connected">
                     <NavLink
                       data-testid="tab-tasks"
@@ -158,14 +169,16 @@ export default class App extends Component {
                   <NavLink data-testid="tab-repo" data-title="Repository" className="nav-link" to="/repo">
                     Repository
                   </NavLink>
-                  <NavLink
-                    data-testid="tab-preferences"
-                    data-title="Preferences"
-                    className="nav-link"
-                    to="/preferences"
-                  >
-                    Preferences
-                  </NavLink>
+                  {!simplifyMode && (
+                    <NavLink
+                      data-testid="tab-preferences"
+                      data-title="Preferences"
+                      className="nav-link"
+                      to="/preferences"
+                    >
+                      Preferences
+                    </NavLink>
+                  )}
                 </Nav>
               </Navbar.Collapse>
             </Navbar>

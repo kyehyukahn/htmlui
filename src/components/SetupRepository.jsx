@@ -22,9 +22,15 @@ import { SetupRepositoryS3 } from "./SetupRepositoryS3";
 import { SetupRepositorySFTP } from "./SetupRepositorySFTP";
 import { SetupRepositoryToken } from "./SetupRepositoryToken";
 import { SetupRepositoryWebDAV } from "./SetupRepositoryWebDAV";
+import { SetupRepositoryVaultkeeper } from "./SetupRepositoryVaultkeeper";
 import { toAlgorithmOption } from "../utils/uiutil";
 
 const supportedProviders = [
+  {
+    provider: "_vaultkeeper",
+    description: "Vaultkeeper (Managed Backup)",
+    component: SetupRepositoryVaultkeeper,
+  },
   {
     provider: "filesystem",
     description: "Local Directory or NAS",
@@ -346,7 +352,59 @@ export class SetupRepository extends Component {
       });
   }
 
+  verifyStorageWithSettings(provider, settings) {
+    const request = {
+      storage: { type: provider, config: settings },
+    };
+
+    this.setState({ isLoading: true, provider });
+    axios
+      .post("/api/v1/repo/exists", request)
+      .then(() => {
+        this.setState({
+          storageVerified: true,
+          confirmCreate: false,
+          isLoading: false,
+          providerSettings: settings,
+        });
+      })
+      .catch((error) => {
+        this.setState({ isLoading: false });
+        if (error.response?.data) {
+          if (error.response.data.code === "NOT_INITIALIZED") {
+            this.setState({
+              confirmCreate: true,
+              storageVerified: true,
+              providerSettings: settings,
+              connectError: null,
+            });
+          } else {
+            this.setState({
+              connectError: error.response.data.code + ": " + error.response.data.error,
+            });
+          }
+        } else {
+          this.setState({
+            connectError: error.message,
+          });
+        }
+      });
+  }
+
   renderProviderConfiguration() {
+    if (this.state.provider === "_vaultkeeper") {
+      return (
+        <SetupRepositoryVaultkeeper
+          hostname={this.state.hostname}
+          onStorageConfigured={(s3Settings, dataProtectionKey) => {
+            this.setState({ password: dataProtectionKey, confirmPassword: dataProtectionKey });
+            this.verifyStorageWithSettings("s3", s3Settings);
+          }}
+          onBack={() => this.setState({ provider: null, providerSettings: null, connectError: null })}
+        />
+      );
+    }
+
     let SelectedProvider = null;
     for (const prov of supportedProviders) {
       if (prov.provider === this.state.provider) {
@@ -540,7 +598,7 @@ export class SetupRepository extends Component {
         <Button
           data-testid="back-button"
           variant="warning"
-          onClick={() => this.setState({ providerSettings: {}, storageVerified: false })}
+          onClick={() => this.setState({ storageVerified: false })}
         >
           Back
         </Button>
@@ -649,7 +707,7 @@ export class SetupRepository extends Component {
         <Button
           data-testid="back-button"
           variant="warning"
-          onClick={() => this.setState({ providerSettings: {}, storageVerified: false })}
+          onClick={() => this.setState({ storageVerified: false })}
         >
           Back
         </Button>

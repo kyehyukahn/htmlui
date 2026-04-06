@@ -15,6 +15,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faCheck, faChevronCircleDown, faChevronCircleUp, faWindowClose } from "@fortawesome/free-solid-svg-icons";
 import { Logs } from "../components/Logs";
 import { AppContext } from "../contexts/AppContext";
+import { registerNotificationProfile } from "../utils/vaultkeeperSetup";
 
 export class Repository extends Component {
   constructor() {
@@ -68,6 +69,11 @@ export class Repository extends Component {
           // Update the app context to reflect the successfully-loaded description.
           this.context.repositoryDescriptionUpdated(result.data.description);
 
+          // Vaultkeeper 세션이 있으면 Notification Profile 자동 등록
+          if (localStorage.getItem("vaultkeeper-apiKey")) {
+            registerNotificationProfile();
+          }
+
           if (result.data.initTaskID) {
             window.setTimeout(() => {
               this.fetchStatusWithoutSpinner();
@@ -90,6 +96,73 @@ export class Repository extends Component {
     axios
       .post("/api/v1/repo/disconnect", {})
       .then((_result) => {
+        this.context.repositoryUpdated(false);
+      })
+      .catch((error) =>
+        this.setState({
+          error,
+          isLoading: false,
+        }),
+      );
+  }
+
+  async restoreVaultkeeperSession() {
+    const endpoint = import.meta.env.VITE_VAULTKEEPER_BACKEND_URL || "http://localhost:3000";
+    const email = prompt("Vaultkeeper email:");
+    if (!email) return;
+    const password = prompt("Password:");
+    if (!password) return;
+
+    try {
+      const hostname = this.state.status?.hostname || "unknown";
+      const res = await axios.post(`${endpoint}/auth/client-login`, {
+        email, password, hostname,
+      });
+      const data = res.data;
+      if (data.status === "active") {
+        localStorage.setItem("vaultkeeper-apiKey", data.apiKey);
+        localStorage.setItem("vaultkeeper-clientId", data.clientId);
+        localStorage.setItem("vaultkeeper-endpoint", endpoint);
+        if (data.storageConfig) {
+          localStorage.setItem("vaultkeeper-storageConfig", JSON.stringify(data.storageConfig));
+        }
+        alert("Vaultkeeper session restored!");
+        this.setState({});
+      } else {
+        alert(`Login failed: ${data.status} - ${data.message || ""}`);
+      }
+    } catch (err) {
+      alert(`Login error: ${err.message}`);
+    }
+  }
+
+  logout() {
+    this.setState({ isLoading: true });
+
+    const apiKey = localStorage.getItem("vaultkeeper-apiKey");
+    const endpoint = localStorage.getItem("vaultkeeper-endpoint");
+
+    // Disconnect kopia repository first
+    axios
+      .post("/api/v1/repo/disconnect", {})
+      .then(async () => {
+        // Call vaultkeeper-backend client-logout
+        if (endpoint && apiKey) {
+          try {
+            await axios.post(`${endpoint}/auth/client-logout`, {}, {
+              headers: { "X-API-Key": apiKey },
+            });
+          } catch {
+            // Logout best-effort — continue cleanup even if backend unreachable
+          }
+        }
+
+        // Clear all vaultkeeper data from localStorage
+        localStorage.removeItem("vaultkeeper-apiKey");
+        localStorage.removeItem("vaultkeeper-clientId");
+        localStorage.removeItem("vaultkeeper-endpoint");
+        localStorage.removeItem("vaultkeeper-storageConfig");
+
         this.context.repositoryUpdated(false);
       })
       .catch((error) =>
@@ -281,15 +354,51 @@ export class Repository extends Component {
             </Row>
             <Row>
               <Col>
-                <Button data-testid="disconnect" size="sm" variant="danger" onClick={this.disconnect}>
-                  Disconnect
-                </Button>
+                {localStorage.getItem("vaultkeeper-apiKey") ? (
+                  <Button data-testid="logout" size="sm" variant="danger" onClick={() => this.logout()}>
+                    Logout
+                  </Button>
+                ) : (
+                  <Button data-testid="disconnect" size="sm" variant="danger" onClick={this.disconnect}>
+                    Disconnect
+                  </Button>
+                )}
               </Col>
             </Row>
+            {import.meta.env.VITE_APP_ENV === "dev" && (
+              <div style={{ marginTop: "1rem", padding: "0.75rem", border: "2px dashed #dc3545", borderRadius: "6px", backgroundColor: "#fff9e6" }}>
+                <Form.Label className="text-danger fw-bold mb-2">DEV</Form.Label>
+                <div>
+                  <Button
+                    size="sm"
+                    variant="danger"
+                    onClick={() => this.restoreVaultkeeperSession()}
+                  >
+                    Restore Vaultkeeper Session
+                  </Button>{" "}
+                  <Button
+                    size="sm"
+                    variant="danger"
+                    onClick={async () => {
+                      localStorage.removeItem("vaultkeeper-notificationRegistered");
+                      await registerNotificationProfile();
+                      alert("Snapshot webhook registered!");
+                    }}
+                    disabled={!localStorage.getItem("vaultkeeper-apiKey")}
+                  >
+                    Register Snapshot Webhook
+                  </Button>{" "}
+                  <Button
+                    size="sm"
+                    variant="danger"
+                    onClick={() => this.context.toggleSimplifyMode()}
+                  >
+                    Simplify {this.context.state.simplifyMode ? "ON" : "OFF"}
+                  </Button>
+                </div>
+              </div>
+            )}
           </Form>
-          <Row>
-            <Col>&nbsp;</Col>
-          </Row>
           <Row>
             <Col xs={12}>
               <CLIEquivalent command="repository status" />

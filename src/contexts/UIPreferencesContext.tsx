@@ -8,9 +8,9 @@ const DEFAULT_PREFERENCES = {
   pageSize: PAGE_SIZES[0],
   bytesStringBase2: false,
   defaultSnapshotViewAll: false,
-  theme: getDefaultTheme(),
+  theme: "ocean",
   preferWebDav: false,
-  fontSize: "fs-6",
+  fontSize: "fs-5",
 } as SerializedUIPreferences;
 const PREFERENCES_URL = "/api/v1/ui-preferences";
 
@@ -42,17 +42,6 @@ interface SerializedUIPreferences {
 export interface UIPreferenceProviderProps {
   children: ReactNode;
   initalValue: UIPreferences | undefined;
-}
-
-/**
- * Returns a default theme based on the user's browser settings.
- * @returns Theme
- */
-function getDefaultTheme(): Theme {
-  if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
-    return "dark";
-  }
-  return "light";
 }
 
 function normalizePageSize(pageSize: number): PageSize {
@@ -114,7 +103,7 @@ export function UIPreferenceProvider(props: UIPreferenceProviderProps) {
       .then((result) => {
         const storedPreferences = result.data as SerializedUIPreferences;
         if (!storedPreferences.theme || (storedPreferences.theme as string) === "") {
-          storedPreferences.theme = getDefaultTheme();
+          storedPreferences.theme = DEFAULT_PREFERENCES.theme;
         }
         if (!storedPreferences.fontSize || (storedPreferences.fontSize as string) === "") {
           storedPreferences.fontSize = DEFAULT_PREFERENCES.fontSize;

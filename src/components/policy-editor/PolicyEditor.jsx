@@ -86,13 +86,48 @@ export class PolicyEditor extends Component {
     }
   }
 
+  deepMerge(base, override) {
+    if (!override) return base;
+    if (!base) return override;
+    const result = { ...base };
+    for (const key of Object.keys(override)) {
+      if (override[key] && typeof override[key] === "object" && !Array.isArray(override[key]) &&
+          base[key] && typeof base[key] === "object" && !Array.isArray(base[key])) {
+        result[key] = this.deepMerge(base[key], override[key]);
+      } else if (override[key] !== undefined && override[key] !== null) {
+        result[key] = override[key];
+      }
+    }
+    return result;
+  }
+
+  // path 레벨에서 설정할 수 없는 필드 제거 (maxParallelSnapshots는 global/host/user@host 전용)
+  stripNonPathFields(policy) {
+    if (!policy) return policy;
+    const result = { ...policy };
+    if (result.upload) {
+      const { maxParallelSnapshots: _mps, ...uploadRest } = result.upload;
+      result.upload = Object.keys(uploadRest).length > 0 ? uploadRest : undefined;
+      if (!result.upload) delete result.upload;
+    }
+    return result;
+  }
+
   fetchPolicy(props) {
     axios
       .get(this.policyURL(props))
       .then((result) => {
+        let kopiaPolicy = result.data;
+        if (props.path) {
+          kopiaPolicy = this.stripNonPathFields(kopiaPolicy);
+        }
+        const override = props.path ? this.stripNonPathFields(this.props.policyOverride) : this.props.policyOverride;
+        const merged = override
+          ? this.deepMerge(kopiaPolicy, override)
+          : kopiaPolicy;
         this.setState({
           isLoading: false,
-          policy: result.data,
+          policy: merged,
         });
       })
       .catch((error) => {
@@ -102,8 +137,9 @@ export class PolicyEditor extends Component {
             isLoading: false,
           });
         } else {
+          const merged = this.props.policyOverride || {};
           this.setState({
-            policy: {},
+            policy: merged,
             isNew: true,
             isLoading: false,
           });
@@ -206,6 +242,14 @@ export class PolicyEditor extends Component {
         "beforeFolder",
         "afterFolder",
       ]);
+    }
+
+    // path 레벨에서 설정 불가능한 필드 제거
+    if (this.props.path && policy.upload) {
+      delete policy.upload.maxParallelSnapshots;
+      if (Object.keys(policy.upload).length === 0) {
+        delete policy.upload;
+      }
     }
 
     return policy;
@@ -863,4 +907,5 @@ PolicyEditor.propTypes = {
   location: PropTypes.object.isRequired,
   userName: PropTypes.string,
   host: PropTypes.string,
+  policyOverride: PropTypes.object,
 };

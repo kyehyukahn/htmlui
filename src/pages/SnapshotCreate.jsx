@@ -45,6 +45,29 @@ class SnapshotCreateInternal extends Component {
       .catch((error) => {
         redirect(error);
       });
+
+    // Vaultkeeper 로그인 상태면 backend policy 조회
+    const apiKey = localStorage.getItem("vaultkeeper-apiKey");
+    const endpoint = localStorage.getItem("vaultkeeper-endpoint");
+    if (apiKey && endpoint) {
+      axios
+        .get(`${endpoint}/policies`, {
+          headers: { "X-API-Key": apiKey },
+        })
+        .then((result) => {
+          const policies = result.data;
+          const activePolicy = policies.find((p) => p.isActive);
+          if (activePolicy) {
+            this.setState({
+              backendPolicy: activePolicy.kopiaPolicy,
+              backendPolicyId: activePolicy.id,
+            });
+          }
+        })
+        .catch(() => {
+          // best-effort — backend 미연결 시 기존 동작 유지
+        });
+    }
   }
 
   maybeResolveCurrentPath(lastResolvedPath) {
@@ -146,10 +169,48 @@ class SnapshotCreateInternal extends Component {
           createSnapshot: true,
           policy: pe.getAndValidatePolicy(),
         })
-        .then((_result) => {
+        .then(async (_result) => {
+          console.log("[vaultkeeper] POST /api/v1/sources 성공, backend 보고 시작");
+          // Vaultkeeper backend에 스냅샷 보고 (best-effort)
+          const apiKey = localStorage.getItem("vaultkeeper-apiKey");
+          const endpoint = localStorage.getItem("vaultkeeper-endpoint");
+          console.log("[vaultkeeper] apiKey:", apiKey ? "있음" : "없음", "endpoint:", endpoint);
+          if (apiKey && endpoint) {
+            try {
+              const snapshotRes = await axios.post(
+                `${endpoint}/snapshots`,
+                {
+                  sourcePath: this.state.resolvedSource.path,
+                  status: "uploading",
+                  startTime: new Date().toISOString(),
+                },
+                { headers: { "X-API-Key": apiKey } },
+              );
+
+              // path 레벨 policy 신규 생성 (snapshotId 연결)
+              if (snapshotRes.data?.id) {
+                const clientId = localStorage.getItem("vaultkeeper-clientId");
+                await axios.post(
+                  `${endpoint}/policies`,
+                  {
+                    clientId,
+                    snapshotId: snapshotRes.data.id,
+                    name: `${this.state.resolvedSource.path} snapshot policy`,
+                    policyLevel: "path",
+                    kopiaPolicy: pe.getAndValidatePolicy(),
+                  },
+                  { headers: { "X-API-Key": apiKey } },
+                );
+              }
+            } catch (err) {
+              console.warn("[vaultkeeper] backend 보고 실패:", err);
+            }
+          }
+
           this.props.navigate(-1);
         })
         .catch((error) => {
+          console.error("[vaultkeeper] POST /api/v1/sources 실패:", error);
           errorAlert(error);
 
           this.setState({
@@ -215,6 +276,7 @@ class SnapshotCreateInternal extends Component {
                 host={this.state.resolvedSource.host}
                 userName={this.state.resolvedSource.userName}
                 path={this.state.resolvedSource.path}
+                policyOverride={this.state.backendPolicy}
               />
             </Col>
           </Row>

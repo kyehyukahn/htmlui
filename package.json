@@ -18,7 +18,10 @@
   },
   "scripts": {
     "start": "vite",
-    "build": "vite build",
+    "build": "vite build --mode development",
+    "build:dev": "vite build --mode development",
+    "build:stg": "vite build --mode staging",
+    "build:prod": "vite build --mode production",
     "serve": "vite dev",
     "test": "vitest run --coverage",
     "prettier": "prettier --write .",
