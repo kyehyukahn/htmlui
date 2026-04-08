@@ -1,5 +1,5 @@
 import React, { Component } from "react";
-import axios from "axios";
+import { createLoginClient } from "../utils/vaultkeeperApi";
 import Button from "react-bootstrap/Button";
 import Col from "react-bootstrap/Col";
 import Form from "react-bootstrap/Form";
@@ -32,7 +32,7 @@ export class SetupRepositoryVaultkeeper extends Component {
     const url = backendUrl.replace(/\/+$/, "");
 
     try {
-      const response = await axios.post(`${url}/auth/client-login`, {
+      const response = await createLoginClient(backendUrl).post("/auth/client-login", {
         email,
         password,
         hostname: this.props.hostname || "unknown",

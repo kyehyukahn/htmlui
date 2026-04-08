@@ -12,6 +12,7 @@ import { RequiredDirectory } from "../forms/RequiredDirectory";
 import { CLIEquivalent } from "../components/CLIEquivalent";
 import { errorAlert, redirect } from "../utils/uiutil";
 import { GoBackButton } from "../components/GoBackButton";
+import { createVaultkeeperClient } from "../utils/vaultkeeperApi";
 import PropTypes from "prop-types";
 
 class SnapshotCreateInternal extends Component {
@@ -50,10 +51,9 @@ class SnapshotCreateInternal extends Component {
     const apiKey = localStorage.getItem("vaultkeeper-apiKey");
     const endpoint = localStorage.getItem("vaultkeeper-endpoint");
     if (apiKey && endpoint) {
-      axios
-        .get(`${endpoint}/policies`, {
-          headers: { "X-API-Key": apiKey },
-        })
+      const vkClient = createVaultkeeperClient();
+      vkClient
+        .get("/policies")
         .then((result) => {
           const policies = result.data;
           const activePolicy = policies.find((p) => p.isActive);
@@ -177,21 +177,21 @@ class SnapshotCreateInternal extends Component {
           console.log("[vaultkeeper] apiKey:", apiKey ? "있음" : "없음", "endpoint:", endpoint);
           if (apiKey && endpoint) {
             try {
-              const snapshotRes = await axios.post(
-                `${endpoint}/snapshots`,
+              const vkClient = createVaultkeeperClient();
+              const snapshotRes = await vkClient.post(
+                "/snapshots",
                 {
                   sourcePath: this.state.resolvedSource.path,
                   status: "uploading",
                   startTime: new Date().toISOString(),
                 },
-                { headers: { "X-API-Key": apiKey } },
               );
 
               // path 레벨 policy 신규 생성 (snapshotId 연결)
               if (snapshotRes.data?.id) {
                 const clientId = localStorage.getItem("vaultkeeper-clientId");
-                await axios.post(
-                  `${endpoint}/policies`,
+                await vkClient.post(
+                  "/policies",
                   {
                     clientId,
                     snapshotId: snapshotRes.data.id,
@@ -199,7 +199,6 @@ class SnapshotCreateInternal extends Component {
                     policyLevel: "path",
                     kopiaPolicy: pe.getAndValidatePolicy(),
                   },
-                  { headers: { "X-API-Key": apiKey } },
                 );
               }
             } catch (err) {

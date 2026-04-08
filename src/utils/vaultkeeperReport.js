@@ -1,4 +1,4 @@
-import axios from "axios";
+import { createVaultkeeperClient } from "./vaultkeeperApi";
 
 /**
  * 복원 리포트를 vaultkeeper-backend에 전송한다.
@@ -10,10 +10,10 @@ export async function reportRestore({ snapshotId, restorePath, status, errorMess
   if (!backendUrl || !apiKey) return;
 
   try {
-    await axios.post(
-      `${backendUrl}/report/restores`,
+    const vkClient = createVaultkeeperClient();
+    await vkClient.post(
+      "/report/restores",
       { snapshotId, restorePath, status, errorMessage },
-      { headers: { "X-API-Key": apiKey } },
     );
     console.log(`[vaultkeeper] Restore report sent: ${status}`);
   } catch (err) {

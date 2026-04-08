@@ -16,6 +16,7 @@ import { faCheck, faChevronCircleDown, faChevronCircleUp, faWindowClose } from "
 import { Logs } from "../components/Logs";
 import { AppContext } from "../contexts/AppContext";
 import { registerNotificationProfile } from "../utils/vaultkeeperSetup";
+import { createVaultkeeperClient, createLoginClient } from "../utils/vaultkeeperApi";
 
 export class Repository extends Component {
   constructor() {
@@ -115,7 +116,7 @@ export class Repository extends Component {
 
     try {
       const hostname = this.state.status?.hostname || "unknown";
-      const res = await axios.post(`${endpoint}/auth/client-login`, {
+      const res = await createLoginClient(endpoint).post("/auth/client-login", {
         email, password, hostname,
       });
       const data = res.data;
@@ -149,9 +150,8 @@ export class Repository extends Component {
         // Call vaultkeeper-backend client-logout
         if (endpoint && apiKey) {
           try {
-            await axios.post(`${endpoint}/auth/client-logout`, {}, {
-              headers: { "X-API-Key": apiKey },
-            });
+            const vkClient = createVaultkeeperClient();
+            await vkClient.post("/auth/client-logout");
           } catch {
             // Logout best-effort — continue cleanup even if backend unreachable
           }
