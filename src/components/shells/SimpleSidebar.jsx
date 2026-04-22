@@ -11,8 +11,10 @@ export function SimpleSidebar() {
   return (
     <aside className="vk-sidebar">
       <div className="vk-sidebar-brand">
-        <img src="/kopia-flat.svg" alt="logo" />
-        <span className="vk-sidebar-name">Kopia</span>
+        <img src="/kopia-flat.svg" alt="VaultKeeper" />
+        <span className="vk-sidebar-name">
+          <span className="vk-brand-accent">Vault</span>Keeper
+        </span>
       </div>
       <nav className="vk-sidebar-nav">
         <NavLink to="/snapshots" className={({ isActive }) => "vk-sidebar-link" + (isActive ? " active" : "")}>

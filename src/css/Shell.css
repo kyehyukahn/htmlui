@@ -20,12 +20,13 @@
   /* Dark sidebar */
   --vk-sidebar-bg: #111827;     /* gray-900 */
   --vk-sidebar-divider: #1f2937;/* gray-800 */
-  --vk-sidebar-text: #e5e7eb;   /* gray-200 */
-  --vk-sidebar-text-dim: #cbd5e1; /* slate-300 */
+  --vk-sidebar-text: #f3f4f6;   /* gray-100 */
+  --vk-sidebar-text-dim: #e5e7eb;/* gray-200 — readable on gray-900 */
   --vk-sidebar-hover: #1f2937;  /* gray-800 */
 
   --vk-accent: #2563eb;         /* blue-600 */
   --vk-accent-hover: #1d4ed8;   /* blue-700 */
+  --vk-brand-accent: #60a5fa;   /* blue-400 — matches frontend "Vault" */
 
   --vk-radius: 8px;
   --vk-radius-lg: 12px;
@@ -90,10 +91,14 @@
 }
 
 .vk-sidebar-name {
-  font-weight: 700;
-  font-size: 1.125rem;
-  letter-spacing: 0.01em;
+  font-weight: 800;
+  font-size: 1.375rem;
+  letter-spacing: 0.02em;
   color: #ffffff;
+}
+
+.vk-brand-accent {
+  color: var(--vk-brand-accent);
 }
 
 .vk-sidebar-nav {
@@ -118,13 +123,22 @@
   transition: background 120ms ease, color 120ms ease;
 }
 
-.vk-sidebar-link:hover {
+.vk-sidebar-link:hover,
+.vk-sidebar-link:focus {
   background: var(--vk-sidebar-hover);
   color: #ffffff;
+  text-decoration: none;
+  outline: none;
 }
 
 .vk-sidebar-link.active {
   background: var(--vk-accent);
+  color: #ffffff;
+}
+
+.vk-sidebar-link.active:hover,
+.vk-sidebar-link.active:focus {
+  background: var(--vk-accent-hover);
   color: #ffffff;
 }
 
@@ -230,16 +244,25 @@
   display: block;
   width: 48px;
   height: 48px;
-  margin: 0 auto 0.75rem;
+  margin: 0 auto 0.5rem;
+}
+
+.vk-login-brand {
+  text-align: center;
+  font-weight: 800;
+  font-size: 1.5rem;
+  letter-spacing: 0.02em;
+  color: var(--vk-text-strong);
+  margin-bottom: 0.25rem;
 }
 
 .vk-login-title {
   text-align: center;
   margin-bottom: 1.5rem;
-  font-weight: 600;
-  font-size: 1.25rem;
-  color: var(--vk-text-strong);
-  letter-spacing: -0.01em;
+  font-weight: 500;
+  font-size: 0.9375rem;
+  color: var(--vk-text-muted);
+  letter-spacing: 0;
 }
 
 /* Tighten bootstrap form inside the login card to match frontend feel */

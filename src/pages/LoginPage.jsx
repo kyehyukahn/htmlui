@@ -28,7 +28,10 @@ export function LoginPage() {
   return (
     <div className="vk-login-root">
       <div className="vk-login-card">
-        <img src="/kopia-flat.svg" alt="Kopia" className="vk-login-logo" />
+        <img src="/kopia-flat.svg" alt="VaultKeeper" className="vk-login-logo" />
+        <div className="vk-login-brand">
+          <span className="vk-brand-accent">Vault</span>Keeper
+        </div>
         <h4 className="vk-login-title">Sign in</h4>
 
         {ctx.error && <Alert variant="danger">{ctx.error}</Alert>}
