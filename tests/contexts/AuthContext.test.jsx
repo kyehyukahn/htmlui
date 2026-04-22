@@ -33,6 +33,7 @@ describe("AuthContext initial state", () => {
   it("restores to 'authenticated' when apiKey present and repo connected", async () => {
     localStorage.setItem("vaultkeeper-apiKey", "vk");
     localStorage.setItem("vaultkeeper-simplifyMode", "true");
+    localStorage.setItem("vaultkeeper-userEmail", "u@e");
     mock.onGet("/api/v1/repo/status").reply(200, { connected: true, description: "repo" });
 
     let captured;
@@ -45,6 +46,7 @@ describe("AuthContext initial state", () => {
     expect(captured.simplifyMode).toBe(true);
     expect(captured.isRepositoryConnected).toBe(true);
     expect(captured.repoDescription).toBe("repo");
+    expect(captured.userEmail).toBe("u@e");
   });
 
   it("clears session and goes unauthenticated on 401 during restore", async () => {

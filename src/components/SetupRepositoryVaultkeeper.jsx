@@ -1,6 +1,6 @@
 import React, { Component } from "react";
 import { createLoginClient } from "../utils/vaultkeeperApi";
-import { saveVaultkeeperSession } from "../utils/vaultkeeperBootstrap";
+import { saveVaultkeeperSession, storageConfigToS3Settings } from "../utils/vaultkeeperBootstrap";
 import Button from "react-bootstrap/Button";
 import Col from "react-bootstrap/Col";
 import Form from "react-bootstrap/Form";
@@ -90,14 +90,7 @@ export class SetupRepositoryVaultkeeper extends Component {
 
   handleNext = () => {
     const { storageConfig } = this.state;
-    const s3Settings = {
-      endpoint: storageConfig.endpoint || "",
-      bucket: storageConfig.bucketName || "",
-      accessKeyID: storageConfig.accessKey || "",
-      secretAccessKey: storageConfig.secretAccessKey || "",
-      region: storageConfig.region || "",
-      prefix: storageConfig.prefix || "",
-    };
+    const s3Settings = storageConfigToS3Settings(storageConfig);
     this.props.onStorageConfigured(s3Settings, storageConfig.dataProtectionKey || "");
   };
 

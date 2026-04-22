@@ -11,6 +11,7 @@ describe("saveVaultkeeperSession", () => {
       clientId: "cid-1",
       storageConfig: { bucketName: "b" },
       simplifyMode: false,
+      userEmail: "a@b.c",
     });
 
     expect(localStorage.getItem("vaultkeeper-apiKey")).toBe("vk_abc");
@@ -18,6 +19,12 @@ describe("saveVaultkeeperSession", () => {
     expect(localStorage.getItem("vaultkeeper-endpoint")).toBe("http://localhost:3000/api/v1");
     expect(JSON.parse(localStorage.getItem("vaultkeeper-storageConfig"))).toEqual({ bucketName: "b" });
     expect(localStorage.getItem("vaultkeeper-simplifyMode")).toBe("false");
+    expect(localStorage.getItem("vaultkeeper-userEmail")).toBe("a@b.c");
+  });
+
+  it("persists userEmail when provided and clears it via performClientLogout", async () => {
+    saveVaultkeeperSession({ endpoint: "http://x", apiKey: "k", clientId: "c", storageConfig: null, userEmail: "u@e" });
+    expect(localStorage.getItem("vaultkeeper-userEmail")).toBe("u@e");
   });
 
   it("strips trailing slashes from endpoint", () => {
@@ -134,6 +141,7 @@ describe("performClientLogout", () => {
     localStorage.setItem("vaultkeeper-storageConfig", "{}");
     localStorage.setItem("vaultkeeper-simplifyMode", "true");
     localStorage.setItem("vaultkeeper-notificationRegistered", "true");
+    localStorage.setItem("vaultkeeper-userEmail", "test@example.com");
   });
   afterEach(() => mock.restore());
 
@@ -146,7 +154,8 @@ describe("performClientLogout", () => {
     expect(mock.history.post.some((r) => r.url === "/api/v1/repo/disconnect")).toBe(true);
     expect(mock.history.post.some((r) => r.url.endsWith("/auth/client-logout"))).toBe(true);
     ["vaultkeeper-apiKey", "vaultkeeper-clientId", "vaultkeeper-endpoint",
-     "vaultkeeper-storageConfig", "vaultkeeper-simplifyMode", "vaultkeeper-notificationRegistered"]
+     "vaultkeeper-storageConfig", "vaultkeeper-simplifyMode", "vaultkeeper-notificationRegistered",
+     "vaultkeeper-userEmail"]
       .forEach((k) => expect(localStorage.getItem(k)).toBeNull());
   });
 

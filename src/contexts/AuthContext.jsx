@@ -37,6 +37,7 @@ function clearAllVaultkeeperKeys() {
     "vaultkeeper-storageConfig",
     "vaultkeeper-simplifyMode",
     "vaultkeeper-notificationRegistered",
+    "vaultkeeper-userEmail",
   ].forEach((k) => localStorage.removeItem(k));
 }
 
@@ -61,11 +62,12 @@ export function AuthProvider({ children }) {
         const storageRaw = localStorage.getItem("vaultkeeper-storageConfig");
         const storageConfig = storageRaw ? JSON.parse(storageRaw) : null;
         const simplifyMode = readSimplifyMode();
+        const userEmail = localStorage.getItem("vaultkeeper-userEmail");
 
         if (connected) {
           set({
             status: "authenticated",
-            apiKey, clientId, simplifyMode, storageConfig,
+            apiKey, clientId, simplifyMode, storageConfig, userEmail,
             isRepositoryConnected: true,
             repoDescription: description || "",
           });
@@ -76,7 +78,7 @@ export function AuthProvider({ children }) {
             await autoConnectRepository(storageConfig);
             set({
               status: "authenticated",
-              apiKey, clientId, simplifyMode, storageConfig,
+              apiKey, clientId, simplifyMode, storageConfig, userEmail,
               isRepositoryConnected: true,
             });
           } catch (e) {
@@ -137,6 +139,7 @@ export function AuthProvider({ children }) {
       clientId: data.clientId,
       storageConfig: data.storageConfig,
       simplifyMode: data.simplifyMode,
+      userEmail: email,
     });
 
     try {

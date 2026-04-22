@@ -17,8 +17,9 @@ import axios from "axios";
  * @param {string} params.clientId
  * @param {object|null} [params.storageConfig] - truthy 면 JSON 으로 저장, falsy 면 스킵
  * @param {boolean|null} [params.simplifyMode]
+ * @param {string|null} [params.userEmail] - 로그인한 사용자 이메일; falsy 면 스킵
  */
-export function saveVaultkeeperSession({ endpoint, apiKey, clientId, storageConfig, simplifyMode }) {
+export function saveVaultkeeperSession({ endpoint, apiKey, clientId, storageConfig, simplifyMode, userEmail }) {
   localStorage.setItem("vaultkeeper-apiKey", apiKey);
   localStorage.setItem("vaultkeeper-clientId", clientId);
   localStorage.setItem("vaultkeeper-endpoint", endpoint.replace(/\/+$/, ""));
@@ -27,6 +28,9 @@ export function saveVaultkeeperSession({ endpoint, apiKey, clientId, storageConf
   }
   const sm = (simplifyMode === undefined || simplifyMode === null) ? true : !!simplifyMode;
   localStorage.setItem("vaultkeeper-simplifyMode", String(sm));
+  if (userEmail) {
+    localStorage.setItem("vaultkeeper-userEmail", userEmail);
+  }
 }
 
 /**
@@ -82,6 +86,7 @@ const VK_LS_KEYS = [
   "vaultkeeper-storageConfig",
   "vaultkeeper-simplifyMode",
   "vaultkeeper-notificationRegistered",
+  "vaultkeeper-userEmail",
 ];
 
 function clearVaultkeeperSession() {
