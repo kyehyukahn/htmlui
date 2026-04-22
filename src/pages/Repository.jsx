@@ -314,13 +314,6 @@ export class Repository extends Component {
                   >
                     Register Snapshot Webhook
                   </Button>{" "}
-                  <Button
-                    size="sm"
-                    variant="danger"
-                    onClick={() => this.context.toggleSimplifyMode()}
-                  >
-                    Simplify {this.context.state.simplifyMode ? "ON" : "OFF"}
-                  </Button>
                 </div>
               </div>
             )}
