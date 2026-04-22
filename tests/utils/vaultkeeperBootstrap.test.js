@@ -120,3 +120,42 @@ describe("autoConnectRepository", () => {
     await expect(autoConnectRepository(storageConfig)).rejects.toThrow();
   });
 });
+
+import { performClientLogout } from "../../src/utils/vaultkeeperBootstrap";
+
+describe("performClientLogout", () => {
+  let mock;
+  beforeEach(() => {
+    mock = new MockAdapter(axios);
+    localStorage.clear();
+    localStorage.setItem("vaultkeeper-apiKey", "vk_abc");
+    localStorage.setItem("vaultkeeper-clientId", "c1");
+    localStorage.setItem("vaultkeeper-endpoint", "http://localhost:3000/api/v1");
+    localStorage.setItem("vaultkeeper-storageConfig", "{}");
+    localStorage.setItem("vaultkeeper-simplifyMode", "true");
+    localStorage.setItem("vaultkeeper-notificationRegistered", "true");
+  });
+  afterEach(() => mock.restore());
+
+  it("disconnects repo, calls backend client-logout, clears localStorage", async () => {
+    mock.onPost("/api/v1/repo/disconnect").reply(200);
+    mock.onPost("http://localhost:3000/api/v1/auth/client-logout").reply(200);
+
+    await performClientLogout();
+
+    expect(mock.history.post.some((r) => r.url === "/api/v1/repo/disconnect")).toBe(true);
+    expect(mock.history.post.some((r) => r.url.endsWith("/auth/client-logout"))).toBe(true);
+    ["vaultkeeper-apiKey", "vaultkeeper-clientId", "vaultkeeper-endpoint",
+     "vaultkeeper-storageConfig", "vaultkeeper-simplifyMode", "vaultkeeper-notificationRegistered"]
+      .forEach((k) => expect(localStorage.getItem(k)).toBeNull());
+  });
+
+  it("clears localStorage even if backend logout fails (best-effort)", async () => {
+    mock.onPost("/api/v1/repo/disconnect").reply(200);
+    mock.onPost("http://localhost:3000/api/v1/auth/client-logout").reply(500);
+
+    await performClientLogout();
+
+    expect(localStorage.getItem("vaultkeeper-apiKey")).toBeNull();
+  });
+});

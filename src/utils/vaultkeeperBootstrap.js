@@ -74,3 +74,40 @@ export async function autoConnectRepository(storageConfig) {
   }
   await axios.post("/api/v1/repo/connect", request);
 }
+
+const VK_LS_KEYS = [
+  "vaultkeeper-apiKey",
+  "vaultkeeper-clientId",
+  "vaultkeeper-endpoint",
+  "vaultkeeper-storageConfig",
+  "vaultkeeper-simplifyMode",
+  "vaultkeeper-notificationRegistered",
+];
+
+function clearVaultkeeperSession() {
+  VK_LS_KEYS.forEach((k) => localStorage.removeItem(k));
+}
+
+/**
+ * 로그아웃 시퀀스: kopia repo disconnect → backend client-logout → localStorage 정리.
+ * 각 HTTP 호출은 best-effort. 네트워크 에러가 나도 세션 정리는 끝까지 수행한다.
+ * 기존 Repository.jsx::logout 의 로직을 함수로 추출해 풀모드/심플모드 양쪽이 공유한다.
+ */
+export async function performClientLogout() {
+  const endpoint = localStorage.getItem("vaultkeeper-endpoint");
+  const apiKey = localStorage.getItem("vaultkeeper-apiKey");
+
+  try { await axios.post("/api/v1/repo/disconnect", {}); } catch { /* best-effort */ }
+
+  if (endpoint && apiKey) {
+    try {
+      await axios.post(
+        `${endpoint.replace(/\/+$/, "")}/auth/client-logout`,
+        {},
+        { headers: { "X-API-Key": apiKey } },
+      );
+    } catch { /* best-effort */ }
+  }
+
+  clearVaultkeeperSession();
+}
