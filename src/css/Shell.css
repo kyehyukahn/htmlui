@@ -1,4 +1,49 @@
-/* SimpleShell layout */
+/*
+ * Shell + LoginPage styles.
+ * Visual tokens align with vaultkeeper-frontend (Geist font, Tailwind slate/blue
+ * palette, antialiased text, similar shadow/radius scale).
+ */
+
+:root {
+  --vk-font-sans: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --vk-font-mono: "Geist Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo,
+    Consolas, "Liberation Mono", monospace;
+
+  /* Slate / gray palette (matches Tailwind defaults used by the frontend) */
+  --vk-bg-main: #f8fafc;        /* slate-50 */
+  --vk-border-subtle: #e5e7eb;  /* gray-200 */
+  --vk-text-strong: #0f172a;    /* slate-900 */
+  --vk-text-body: #334155;      /* slate-700 */
+  --vk-text-muted: #64748b;     /* slate-500 */
+
+  /* Dark sidebar */
+  --vk-sidebar-bg: #111827;     /* gray-900 */
+  --vk-sidebar-divider: #1f2937;/* gray-800 */
+  --vk-sidebar-text: #e5e7eb;   /* gray-200 */
+  --vk-sidebar-text-dim: #cbd5e1; /* slate-300 */
+  --vk-sidebar-hover: #1f2937;  /* gray-800 */
+
+  --vk-accent: #2563eb;         /* blue-600 */
+  --vk-accent-hover: #1d4ed8;   /* blue-700 */
+
+  --vk-radius: 8px;
+  --vk-radius-lg: 12px;
+  --vk-shadow-card: 0 12px 30px rgba(0, 0, 0, 0.25);
+}
+
+/* -------------------------------------------------------------------------- */
+/* SimpleShell layout                                                         */
+/* -------------------------------------------------------------------------- */
+
+.vk-shell,
+.vk-login-root {
+  font-family: var(--vk-font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  color: var(--vk-text-body);
+}
+
 .vk-shell {
   display: flex;
   min-height: 100vh;
@@ -8,36 +53,47 @@
   flex: 1;
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .vk-shell-main {
   flex: 1;
-  padding: 1.25rem 1.5rem;
-  background: #f8fafc;
+  padding: 1.5rem 1.75rem;
+  background: var(--vk-bg-main);
+  overflow: auto;
 }
 
-/* Sidebar */
+/* -------------------------------------------------------------------------- */
+/* Sidebar                                                                    */
+/* -------------------------------------------------------------------------- */
+
 .vk-sidebar {
   width: 15rem;
-  background: #111827;
-  color: #e5e7eb;
+  background: var(--vk-sidebar-bg);
+  color: var(--vk-sidebar-text);
   display: flex;
   flex-direction: column;
+  font-family: var(--vk-font-sans);
 }
 
 .vk-sidebar-brand {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.625rem;
   padding: 1rem 1.25rem;
-  border-bottom: 1px solid #1f2937;
+  border-bottom: 1px solid var(--vk-sidebar-divider);
 }
 
-.vk-sidebar-brand img { width: 32px; height: 32px; }
+.vk-sidebar-brand img {
+  width: 28px;
+  height: 28px;
+}
 
 .vk-sidebar-name {
   font-weight: 700;
-  letter-spacing: 0.02em;
+  font-size: 1.125rem;
+  letter-spacing: 0.01em;
+  color: #ffffff;
 }
 
 .vk-sidebar-nav {
@@ -52,32 +108,53 @@
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding: 0.6rem 0.85rem;
-  border-radius: 6px;
-  color: #cbd5e1;
+  padding: 0.625rem 0.875rem;
+  border-radius: var(--vk-radius);
+  color: var(--vk-sidebar-text-dim);
   text-decoration: none;
-  font-size: 0.925rem;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  line-height: 1.25rem;
+  transition: background 120ms ease, color 120ms ease;
 }
 
-.vk-sidebar-link:hover { background: #1f2937; color: #fff; }
-.vk-sidebar-link.active { background: #2563eb; color: #fff; }
+.vk-sidebar-link:hover {
+  background: var(--vk-sidebar-hover);
+  color: #ffffff;
+}
+
+.vk-sidebar-link.active {
+  background: var(--vk-accent);
+  color: #ffffff;
+}
+
+.vk-sidebar-link svg {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+}
 
 .vk-sidebar-footer {
   padding: 0.75rem 1.25rem;
   font-size: 0.75rem;
-  color: #64748b;
-  border-top: 1px solid #1f2937;
+  color: var(--vk-text-muted);
+  border-top: 1px solid var(--vk-sidebar-divider);
+  font-family: var(--vk-font-mono);
 }
 
-/* Header */
+/* -------------------------------------------------------------------------- */
+/* Header                                                                     */
+/* -------------------------------------------------------------------------- */
+
 .vk-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   height: 3.5rem;
-  padding: 0 1.25rem;
-  background: #fff;
-  border-bottom: 1px solid #e5e7eb;
+  padding: 0 1.5rem;
+  background: #ffffff;
+  border-bottom: 1px solid var(--vk-border-subtle);
+  font-family: var(--vk-font-sans);
 }
 
 .vk-header-spacer {
@@ -85,38 +162,51 @@
 }
 
 .vk-header-avatar {
-  color: #475569;
-  padding: 0.25rem 0.5rem;
+  color: var(--vk-text-body);
+  padding: 0.35rem 0.5rem;
   background: transparent;
   border: none;
+  border-radius: 9999px;
+  transition: background 120ms ease, color 120ms ease;
 }
 
 .vk-header-avatar:hover,
 .vk-header-avatar:focus {
-  color: #1e293b;
+  color: var(--vk-text-strong);
   background: #f1f5f9;
+  box-shadow: none;
 }
 
 .vk-conn-status {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.25rem 1rem;
+  padding: 0.35rem 1rem;
   font-size: 0.875rem;
-  color: #334155;
+  color: var(--vk-text-body);
 }
 
 .vk-dot {
-  width: 0.6rem;
-  height: 0.6rem;
+  width: 0.55rem;
+  height: 0.55rem;
   border-radius: 50%;
   display: inline-block;
 }
 
-.vk-dot-ok { background: #16a34a; }
-.vk-dot-bad { background: #dc2626; }
+.vk-dot-ok {
+  background: #16a34a;
+  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.15);
+}
 
-/* Login page */
+.vk-dot-bad {
+  background: #dc2626;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Login page                                                                 */
+/* -------------------------------------------------------------------------- */
+
 .vk-login-root {
   min-height: 100vh;
   display: flex;
@@ -129,10 +219,11 @@
 .vk-login-card {
   width: 100%;
   max-width: 24rem;
-  padding: 2rem;
-  background: #fff;
-  border-radius: 10px;
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
+  padding: 2rem 2.25rem;
+  background: #ffffff;
+  border-radius: var(--vk-radius-lg);
+  box-shadow: var(--vk-shadow-card);
+  font-family: var(--vk-font-sans);
 }
 
 .vk-login-logo {
@@ -144,5 +235,49 @@
 
 .vk-login-title {
   text-align: center;
-  margin-bottom: 1.25rem;
+  margin-bottom: 1.5rem;
+  font-weight: 600;
+  font-size: 1.25rem;
+  color: var(--vk-text-strong);
+  letter-spacing: -0.01em;
+}
+
+/* Tighten bootstrap form inside the login card to match frontend feel */
+.vk-login-card .form-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--vk-text-body);
+  margin-bottom: 0.25rem;
+}
+
+.vk-login-card .form-control {
+  border-radius: var(--vk-radius);
+  border-color: #d1d5db;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.9375rem;
+}
+
+.vk-login-card .form-control:focus {
+  border-color: var(--vk-accent);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.vk-login-card .btn-primary {
+  background: var(--vk-accent);
+  border-color: var(--vk-accent);
+  border-radius: var(--vk-radius);
+  padding: 0.55rem 0.75rem;
+  font-weight: 500;
+  font-size: 0.9375rem;
+}
+
+.vk-login-card .btn-primary:hover,
+.vk-login-card .btn-primary:focus {
+  background: var(--vk-accent-hover);
+  border-color: var(--vk-accent-hover);
+}
+
+.vk-login-card .alert {
+  border-radius: var(--vk-radius);
+  font-size: 0.875rem;
 }
