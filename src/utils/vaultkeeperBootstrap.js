@@ -1,3 +1,5 @@
+import axios from "axios";
+
 /**
  * Vaultkeeper 세션 부트스트랩 헬퍼.
  * 기존 Repository.jsx::restoreVaultkeeperSession 와 SetupRepositoryVaultkeeper.jsx::handleLogin
@@ -40,4 +42,35 @@ export function storageConfigToS3Settings(storageConfig) {
     region: storageConfig.region || "",
     prefix: storageConfig.prefix || "",
   };
+}
+
+export class RepositoryNotFoundError extends Error {
+  constructor(message = "Repository does not exist at the configured storage") {
+    super(message);
+    this.name = "RepositoryNotFoundError";
+  }
+}
+
+function buildRepoRequest(storageConfig) {
+  const s3 = storageConfigToS3Settings(storageConfig);
+  return {
+    storage: { type: "s3", config: s3 },
+    password: storageConfig.dataProtectionKey || "",
+    clientOptions: { description: "" },
+  };
+}
+
+/**
+ * Kopia 서버에 repo 연결을 자동 시도한다.
+ * - /api/v1/repo/exists 로 저장소 존재 확인
+ * - 존재하면 /api/v1/repo/connect
+ * - 미존재면 RepositoryNotFoundError throw (심플모드는 생성 경로 미지원)
+ */
+export async function autoConnectRepository(storageConfig) {
+  const request = buildRepoRequest(storageConfig);
+  const existsResp = await axios.post("/api/v1/repo/exists", request);
+  if (!existsResp.data || existsResp.data.exists !== true) {
+    throw new RepositoryNotFoundError();
+  }
+  await axios.post("/api/v1/repo/connect", request);
 }

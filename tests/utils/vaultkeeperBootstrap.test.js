@@ -77,3 +77,46 @@ describe("storageConfigToS3Settings", () => {
     });
   });
 });
+
+import axios from "axios";
+import MockAdapter from "axios-mock-adapter";
+import { autoConnectRepository, RepositoryNotFoundError } from "../../src/utils/vaultkeeperBootstrap";
+import { afterEach } from "vitest";
+
+describe("autoConnectRepository", () => {
+  let mock;
+  beforeEach(() => { mock = new MockAdapter(axios); });
+  afterEach(() => mock.restore());
+
+  const storageConfig = {
+    endpoint: "s3.example.com", bucketName: "b", accessKey: "AK",
+    secretAccessKey: "SK", region: "us-east-1", prefix: "",
+    dataProtectionKey: "dpk",
+  };
+
+  it("calls /repo/exists then /repo/connect with s3 settings", async () => {
+    mock.onPost("/api/v1/repo/exists").reply(200, { exists: true });
+    mock.onPost("/api/v1/repo/connect").reply(200);
+
+    await autoConnectRepository(storageConfig);
+
+    expect(mock.history.post).toHaveLength(2);
+    const connectBody = JSON.parse(mock.history.post[1].data);
+    expect(connectBody.storage.type).toBe("s3");
+    expect(connectBody.storage.config.bucket).toBe("b");
+    expect(connectBody.password).toBe("dpk");
+  });
+
+  it("throws RepositoryNotFoundError when exists=false", async () => {
+    mock.onPost("/api/v1/repo/exists").reply(200, { exists: false });
+
+    await expect(autoConnectRepository(storageConfig)).rejects.toBeInstanceOf(RepositoryNotFoundError);
+  });
+
+  it("propagates connect errors", async () => {
+    mock.onPost("/api/v1/repo/exists").reply(200, { exists: true });
+    mock.onPost("/api/v1/repo/connect").reply(500, { error: "boom" });
+
+    await expect(autoConnectRepository(storageConfig)).rejects.toThrow();
+  });
+});
