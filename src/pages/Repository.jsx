@@ -16,7 +16,8 @@ import { faCheck, faChevronCircleDown, faChevronCircleUp, faWindowClose } from "
 import { Logs } from "../components/Logs";
 import { AppContext } from "../contexts/AppContext";
 import { registerNotificationProfile } from "../utils/vaultkeeperSetup";
-import { createVaultkeeperClient, createLoginClient } from "../utils/vaultkeeperApi";
+import { createLoginClient } from "../utils/vaultkeeperApi";
+import { saveVaultkeeperSession, performClientLogout } from "../utils/vaultkeeperBootstrap";
 
 export class Repository extends Component {
   constructor() {
@@ -121,12 +122,13 @@ export class Repository extends Component {
       });
       const data = res.data;
       if (data.status === "active") {
-        localStorage.setItem("vaultkeeper-apiKey", data.apiKey);
-        localStorage.setItem("vaultkeeper-clientId", data.clientId);
-        localStorage.setItem("vaultkeeper-endpoint", endpoint);
-        if (data.storageConfig) {
-          localStorage.setItem("vaultkeeper-storageConfig", JSON.stringify(data.storageConfig));
-        }
+        saveVaultkeeperSession({
+          endpoint,
+          apiKey: data.apiKey,
+          clientId: data.clientId,
+          storageConfig: data.storageConfig || null,
+          simplifyMode: data.simplifyMode,
+        });
         alert("Vaultkeeper session restored!");
         this.setState({});
       } else {
@@ -137,40 +139,10 @@ export class Repository extends Component {
     }
   }
 
-  logout() {
+  async logout() {
     this.setState({ isLoading: true });
-
-    const apiKey = localStorage.getItem("vaultkeeper-apiKey");
-    const endpoint = localStorage.getItem("vaultkeeper-endpoint");
-
-    // Disconnect kopia repository first
-    axios
-      .post("/api/v1/repo/disconnect", {})
-      .then(async () => {
-        // Call vaultkeeper-backend client-logout
-        if (endpoint && apiKey) {
-          try {
-            const vkClient = createVaultkeeperClient();
-            await vkClient.post("/auth/client-logout");
-          } catch {
-            // Logout best-effort — continue cleanup even if backend unreachable
-          }
-        }
-
-        // Clear all vaultkeeper data from localStorage
-        localStorage.removeItem("vaultkeeper-apiKey");
-        localStorage.removeItem("vaultkeeper-clientId");
-        localStorage.removeItem("vaultkeeper-endpoint");
-        localStorage.removeItem("vaultkeeper-storageConfig");
-
-        this.context.repositoryUpdated(false);
-      })
-      .catch((error) =>
-        this.setState({
-          error,
-          isLoading: false,
-        }),
-      );
+    await performClientLogout();
+    this.context.repositoryUpdated(false);
   }
 
   selectProvider(provider) {

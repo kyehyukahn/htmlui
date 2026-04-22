@@ -1,5 +1,6 @@
 import React, { Component } from "react";
 import { createLoginClient } from "../utils/vaultkeeperApi";
+import { saveVaultkeeperSession } from "../utils/vaultkeeperBootstrap";
 import Button from "react-bootstrap/Button";
 import Col from "react-bootstrap/Col";
 import Form from "react-bootstrap/Form";
@@ -61,10 +62,13 @@ export class SetupRepositoryVaultkeeper extends Component {
       }
 
       // Save credentials for future API calls
-      localStorage.setItem("vaultkeeper-apiKey", data.apiKey);
-      localStorage.setItem("vaultkeeper-clientId", data.clientId);
-      localStorage.setItem("vaultkeeper-endpoint", url);
-      localStorage.setItem("vaultkeeper-storageConfig", JSON.stringify(data.storageConfig));
+      saveVaultkeeperSession({
+        endpoint: url,
+        apiKey: data.apiKey,
+        clientId: data.clientId,
+        storageConfig: data.storageConfig,
+        simplifyMode: data.simplifyMode,
+      });
 
       this.setState({
         isLoading: false,
