@@ -16,8 +16,6 @@ import { faCheck, faChevronCircleDown, faChevronCircleUp, faWindowClose } from "
 import { Logs } from "../components/Logs";
 import { AppContext } from "../contexts/AppContext";
 import { registerNotificationProfile } from "../utils/vaultkeeperSetup";
-import { createLoginClient } from "../utils/vaultkeeperApi";
-import { saveVaultkeeperSession, performClientLogout } from "../utils/vaultkeeperBootstrap";
 
 export class Repository extends Component {
   constructor() {
@@ -106,43 +104,6 @@ export class Repository extends Component {
           isLoading: false,
         }),
       );
-  }
-
-  async restoreVaultkeeperSession() {
-    const endpoint = import.meta.env.VITE_VAULTKEEPER_BACKEND_URL || "http://localhost:3000";
-    const email = prompt("Vaultkeeper email:");
-    if (!email) return;
-    const password = prompt("Password:");
-    if (!password) return;
-
-    try {
-      const hostname = this.state.status?.hostname || "unknown";
-      const res = await createLoginClient(endpoint).post("/auth/client-login", {
-        email, password, hostname,
-      });
-      const data = res.data;
-      if (data.status === "active") {
-        saveVaultkeeperSession({
-          endpoint,
-          apiKey: data.apiKey,
-          clientId: data.clientId,
-          storageConfig: data.storageConfig || null,
-          simplifyMode: data.simplifyMode,
-        });
-        alert("Vaultkeeper session restored!");
-        this.setState({});
-      } else {
-        alert(`Login failed: ${data.status} - ${data.message || ""}`);
-      }
-    } catch (err) {
-      alert(`Login error: ${err.message}`);
-    }
-  }
-
-  async logout() {
-    this.setState({ isLoading: true });
-    await performClientLogout();
-    this.context.repositoryUpdated(false);
   }
 
   selectProvider(provider) {
@@ -327,7 +288,7 @@ export class Repository extends Component {
             <Row>
               <Col>
                 {localStorage.getItem("vaultkeeper-apiKey") ? (
-                  <Button data-testid="logout" size="sm" variant="danger" onClick={() => this.logout()}>
+                  <Button data-testid="logout" size="sm" variant="danger" onClick={() => this.context.logout?.()}>
                     Logout
                   </Button>
                 ) : (
@@ -341,13 +302,6 @@ export class Repository extends Component {
               <div style={{ marginTop: "1rem", padding: "0.75rem", border: "2px dashed #dc3545", borderRadius: "6px", backgroundColor: "#fff9e6" }}>
                 <Form.Label className="text-danger fw-bold mb-2">DEV</Form.Label>
                 <div>
-                  <Button
-                    size="sm"
-                    variant="danger"
-                    onClick={() => this.restoreVaultkeeperSession()}
-                  >
-                    Restore Vaultkeeper Session
-                  </Button>{" "}
                   <Button
                     size="sm"
                     variant="danger"
