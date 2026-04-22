@@ -6,8 +6,9 @@ import Button from "react-bootstrap/Button";
 import FormControl from "react-bootstrap/FormControl";
 import InputGroup from "react-bootstrap/InputGroup";
 import PropTypes from "prop-types";
+import { useSimplifyMode } from "../contexts/AuthContext";
 
-export function CLIEquivalent(props) {
+function CLIEquivalentInner(props) {
   let [visible, setVisible] = useState(false);
   let [cliInfo, setCLIInfo] = useState({});
 
@@ -65,6 +66,12 @@ export function CLIEquivalent(props) {
   );
 }
 
-CLIEquivalent.propTypes = {
+CLIEquivalentInner.propTypes = {
   command: PropTypes.string.isRequired,
 };
+
+export function CLIEquivalent(props) {
+  const simplify = useSimplifyMode();
+  if (simplify) return null;
+  return <CLIEquivalentInner {...props} />;
+}

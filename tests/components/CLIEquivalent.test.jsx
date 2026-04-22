@@ -4,6 +4,7 @@ import { vi } from "vitest";
 import "@testing-library/jest-dom";
 import { setupAPIMock } from "../testutils/api-mocks";
 import { CLIEquivalent } from "../../src/components/CLIEquivalent";
+import { AuthContext } from "../../src/contexts/AuthContext";
 
 describe("CLIEquivalent", () => {
   let axiosMock;
@@ -59,5 +60,14 @@ describe("CLIEquivalent", () => {
 
     // Should not crash and should still show the button
     expect(terminalButton).toBeInTheDocument();
+  });
+
+  it("renders nothing when simplifyMode=true", () => {
+    const { container } = render(
+      <AuthContext.Provider value={{ simplifyMode: true }}>
+        <CLIEquivalent command="kopia snapshot create ." />
+      </AuthContext.Provider>,
+    );
+    expect(container.firstChild).toBeNull();
   });
 });
