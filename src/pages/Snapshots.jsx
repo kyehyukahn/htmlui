@@ -15,13 +15,15 @@ import KopiaTable from "../components/KopiaTable";
 import { compare, formatOwnerName, sizeDisplayName } from "../utils/formatutils";
 import { errorAlert, redirect, sizeWithFailures } from "../utils/uiutil";
 import { policyEditorURL, sourceQueryStringParams } from "../utils/policyutil";
+/* eslint-disable react/prop-types */
 import { CLIEquivalent } from "../components/CLIEquivalent";
 import { UIPreferencesContext } from "../contexts/UIPreferencesContext";
+import { useSimplifyMode } from "../contexts/AuthContext";
 
 const localSnapshots = "Local Snapshots";
 const allSnapshots = "All Snapshots";
 
-export class Snapshots extends Component {
+export class SnapshotsInner extends Component {
   constructor() {
     super();
     this.state = {
@@ -144,15 +146,17 @@ export class Snapshots extends Component {
       case "PAUSED":
         return (
           <>
-            <Button
-              data-testid="edit-policy"
-              as={Link}
-              to={policyEditorURL(x.row.original.source)}
-              variant="primary"
-              size="sm"
-            >
-              Policy
-            </Button>
+            {!this.props.simplifyMode && (
+              <Button
+                data-testid="edit-policy"
+                as={Link}
+                to={policyEditorURL(x.row.original.source)}
+                variant="primary"
+                size="sm"
+              >
+                Policy
+              </Button>
+            )}
             <Button
               data-testid="snapshot-now"
               variant="success"
@@ -422,4 +426,14 @@ export class Snapshots extends Component {
     );
   }
 }
-Snapshots.contextType = UIPreferencesContext;
+SnapshotsInner.contextType = UIPreferencesContext;
+
+/**
+ * Functional wrapper injecting simplifyMode from AuthContext. In simplify mode
+ * the per-row "Policy" button is hidden (dead-end since /policies/edit is not
+ * a registered route in SimpleShell).
+ */
+export function Snapshots(props) {
+  const simplifyMode = useSimplifyMode();
+  return <SnapshotsInner {...props} simplifyMode={simplifyMode} />;
+}

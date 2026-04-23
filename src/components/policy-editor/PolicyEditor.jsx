@@ -42,9 +42,10 @@ import { SectionHeaderRow } from "./SectionHeaderRow";
 import { ActionRowScript } from "./ActionRowScript";
 import { ActionRowTimeout } from "./ActionRowTimeout";
 import { ActionRowMode } from "./ActionRowMode";
+import { useSimplifyMode } from "../../contexts/AuthContext";
 import PropTypes from "prop-types";
 
-export class PolicyEditor extends Component {
+export class PolicyEditorInner extends Component {
   constructor() {
     super();
     this.state = {
@@ -173,10 +174,10 @@ export class PolicyEditor extends Component {
     }
 
     if (p.userName === this.props.userName && p.host === this.props.host && p.path === this.props.path) {
-      return "(Defined by this policy)";
+      return "(이 정책에서 설정)";
     }
 
-    return <>Defined by {PolicyEditorLink(p)}</>;
+    return <>{PolicyEditorLink(p)}에서 설정</>;
   }
 
   getAndValidatePolicy() {
@@ -328,100 +329,103 @@ export class PolicyEditor extends Component {
 
     return (
       <>
-        <Form className="policy-editor" onSubmit={this.saveChanges}>
+        <Form
+          className={"policy-editor" + (this.props.simplifyMode ? " policy-editor-simple" : "")}
+          onSubmit={this.saveChanges}
+        >
           <Accordion defaultActiveKey="scheduling">
             <Accordion.Item eventKey="retention">
               <Accordion.Header>
                 <FontAwesomeIcon icon={faCalendarTimes} />
-                &nbsp;Snapshot Retention
+                &nbsp;스냅샷 보존 정책
               </Accordion.Header>
               <Accordion.Body>
                 <SectionHeaderRow />
                 <Row>
                   <LabelColumn
-                    name="Latest Snapshots"
-                    help="Number of the most recent snapshots to retain per source"
+                    name="최신 스냅샷"
+                    help="소스별로 최근 스냅샷을 몇 개까지 보관할지 지정"
                   />
                   <ValueColumn>
                     {OptionalNumberField(this, null, "policy.retention.keepLatest", {
-                      placeholder: "# of latest snapshots",
+                      placeholder: "최신 스냅샷 개수",
                     })}
                   </ValueColumn>
                   {EffectiveValue(this, "retention.keepLatest")}
                 </Row>
                 <Row>
                   <LabelColumn
-                    name="Hourly"
-                    help="How many hourly snapshots to retain per source. The latest snapshot from each hour will be retained"
+                    name="시간별"
+                    help="시간대별로 몇 개까지 보관할지. 각 시간대에서 가장 최근 스냅샷 하나만 남깁니다"
                   />
                   <ValueColumn>
                     {OptionalNumberField(this, null, "policy.retention.keepHourly", {
-                      placeholder: "# of hourly snapshots",
+                      placeholder: "시간별 개수",
                     })}
                   </ValueColumn>
                   {EffectiveValue(this, "retention.keepHourly")}
                 </Row>
                 <Row>
                   <LabelColumn
-                    name="Daily"
-                    help="How many daily snapshots to retain per source. The latest snapshot from each day will be retained"
+                    name="일별"
+                    help="일별로 몇 개까지 보관할지. 매일 가장 최근 스냅샷 하나만 남깁니다"
                   />
                   <ValueColumn>
                     {OptionalNumberField(this, null, "policy.retention.keepDaily", {
-                      placeholder: "# of daily snapshots",
+                      placeholder: "일별 개수",
                     })}
                   </ValueColumn>
                   {EffectiveValue(this, "retention.keepDaily")}
                 </Row>
                 <Row>
                   <LabelColumn
-                    name="Weekly"
-                    help="How many weekly snapshots to retain per source. The latest snapshot from each week will be retained"
+                    name="주별"
+                    help="주별로 몇 개까지 보관할지. 매주 가장 최근 스냅샷 하나만 남깁니다"
                   />
                   <ValueColumn>
                     {OptionalNumberField(this, null, "policy.retention.keepWeekly", {
-                      placeholder: "# of weekly snapshots",
+                      placeholder: "주별 개수",
                     })}
                   </ValueColumn>
                   {EffectiveValue(this, "retention.keepWeekly")}
                 </Row>
                 <Row>
                   <LabelColumn
-                    name="Monthly"
-                    help="How many monthly snapshots to retain per source. The latest snapshot from each calendar month will be retained"
+                    name="월별"
+                    help="월별로 몇 개까지 보관할지. 매 달력 월마다 가장 최근 스냅샷 하나만 남깁니다"
                   />
                   <ValueColumn>
                     {OptionalNumberField(this, null, "policy.retention.keepMonthly", {
-                      placeholder: "# of monthly snapshots",
+                      placeholder: "월별 개수",
                     })}
                   </ValueColumn>
                   {EffectiveValue(this, "retention.keepMonthly")}
                 </Row>
                 <Row>
                   <LabelColumn
-                    name="Annual"
-                    help="How many annual snapshots to retain per source. The latest snapshot from each calendar year will be retained"
+                    name="연별"
+                    help="연별로 몇 개까지 보관할지. 매 연도마다 가장 최근 스냅샷 하나만 남깁니다"
                   />
                   <ValueColumn>
                     {OptionalNumberField(this, null, "policy.retention.keepAnnual", {
-                      placeholder: "# of annual snapshots",
+                      placeholder: "연별 개수",
                     })}
                   </ValueColumn>
                   {EffectiveValue(this, "retention.keepAnnual")}
                 </Row>
                 <Row>
                   <LabelColumn
-                    name="Ignore Identical Snapshots"
-                    help="Do NOT save a snapshot when no files have been changed"
+                    name="동일 스냅샷 건너뛰기"
+                    help="파일 변경이 없을 때는 스냅샷을 저장하지 않음"
                   />
                   <ValueColumn>
-                    {OptionalBoolean(this, null, "policy.retention.ignoreIdenticalSnapshots", "inherit from parent")}
+                    {OptionalBoolean(this, null, "policy.retention.ignoreIdenticalSnapshots", "상위 정책 상속")}
                   </ValueColumn>
                   {EffectiveValue(this, "retention.ignoreIdenticalSnapshots")}
                 </Row>
               </Accordion.Body>
             </Accordion.Item>
-            <Accordion.Item eventKey="files">
+            {!this.props.simplifyMode && (<Accordion.Item eventKey="files">
               <Accordion.Header>
                 <FontAwesomeIcon icon={faFolderOpen} />
                 &nbsp;Files
@@ -506,8 +510,8 @@ export class PolicyEditor extends Component {
                   {EffectiveBooleanValue(this, "files.oneFileSystem")}
                 </Row>
               </Accordion.Body>
-            </Accordion.Item>
-            <Accordion.Item eventKey="errors">
+            </Accordion.Item>)}
+            {!this.props.simplifyMode && (<Accordion.Item eventKey="errors">
               <Accordion.Header>
                 <FontAwesomeIcon icon={faExclamationTriangle} />
                 &nbsp;Error Handling
@@ -539,8 +543,8 @@ export class PolicyEditor extends Component {
                   {EffectiveBooleanValue(this, "errorHandling.ignoreUnknownTypes")}
                 </Row>
               </Accordion.Body>
-            </Accordion.Item>
-            <Accordion.Item eventKey="compression">
+            </Accordion.Item>)}
+            {!this.props.simplifyMode && (<Accordion.Item eventKey="compression">
               <Accordion.Header>
                 <FontAwesomeIcon icon={faFileArchive} />
                 &nbsp;Compression
@@ -560,7 +564,7 @@ export class PolicyEditor extends Component {
                       onChange={this.handleChange}
                       value={stateProperty(this, "policy.compression.compressorName")}
                     >
-                      <option value="">(none)</option>
+                      <option value="">(없음)</option>
                       {this.state.algorithms && this.state.algorithms.compression.map((x) => toAlgorithmOption(x, ""))}
                     </Form.Control>
                   </WideValueColumn>
@@ -615,18 +619,18 @@ export class PolicyEditor extends Component {
                   {EffectiveTextAreaValue(this, "compression.neverCompress")}
                 </Row>
               </Accordion.Body>
-            </Accordion.Item>
+            </Accordion.Item>)}
             <Accordion.Item eventKey="scheduling">
               <Accordion.Header>
                 <FontAwesomeIcon icon={faClock} />
-                &nbsp;Scheduling
+                &nbsp;백업 주기
               </Accordion.Header>
               <Accordion.Body>
                 <SectionHeaderRow />
-                <Row>
+                {!this.props.simplifyMode && (<Row>
                   <LabelColumn
-                    name="Snapshot Frequency"
-                    help="How frequently to create snapshots in KopiaUI or Kopia server (has no effect outside of the server mode)"
+                    name="백업 주기"
+                    help="Kopia 서버에서 얼마나 자주 스냅샷을 생성할지 (서버 모드에서만 유효)"
                   />
                   <WideValueColumn>
                     <Form.Control
@@ -637,82 +641,82 @@ export class PolicyEditor extends Component {
                       value={stateProperty(this, "policy.scheduling.intervalSeconds")}
                     >
                       <option value="">(none)</option>
-                      <option value="600">every 10 minutes</option>
-                      <option value="900">every 15 minutes</option>
-                      <option value="1200">every 20 minutes</option>
-                      <option value="1800">every 30 minutes</option>
-                      <option value="3600">every hour</option>
-                      <option value="10800">every 3 hours</option>
-                      <option value="21600">every 6 hours</option>
-                      <option value="43200">every 12 hours</option>
+                      <option value="600">10분마다</option>
+                      <option value="900">15분마다</option>
+                      <option value="1200">20분마다</option>
+                      <option value="1800">30분마다</option>
+                      <option value="3600">1시간마다</option>
+                      <option value="10800">3시간마다</option>
+                      <option value="21600">6시간마다</option>
+                      <option value="43200">12시간마다</option>
                     </Form.Control>
                   </WideValueColumn>
                   {EffectiveValue(this, "scheduling.intervalSeconds")}
-                </Row>
-                <Row>
+                </Row>)}
+                {!this.props.simplifyMode && (<Row>
                   <LabelColumn
-                    name="Times Of Day"
-                    help="Create snapshots at the specified times of day (24hr format)"
+                    name="특정 시각"
+                    help="지정한 시각에 스냅샷 생성 (24시간 형식)"
                   />
                   <ValueColumn>
                     {TimesOfDayList(this, "policy.scheduling.timeOfDay", {
-                      placeholder: "e.g. 17:00",
+                      placeholder: "예: 17:00",
                     })}
                   </ValueColumn>
                   {EffectiveTimesOfDayValue(this, "scheduling.timeOfDay")}
-                </Row>
+                </Row>)}
                 <Row>
                   <LabelColumn
-                    name="Cron Expressions"
+                    name="Cron 식"
                     help={
                       <>
-                        Snapshot schedules using UNIX crontab syntax (one per line):
-                        <br /> See{" "}
+                        UNIX crontab 문법으로 스냅샷 일정을 지정합니다 (한 줄에 하나).
+                        <br /> 지원되는 문법은{" "}
                         <a target="_blank" rel="noreferrer" href="https://github.com/hashicorp/cronexpr#implementation">
-                          supported format details
+                          여기
                         </a>
-                        .
+                        에서 확인하세요.
                       </>
                     }
                   />
                   <ValueColumn>
                     {StringList(this, "policy.scheduling.cron", {
-                      placeholder: "minute hour day month weekday #comment",
+                      placeholder: "분 시 일 월 요일 #주석",
                     })}
                   </ValueColumn>
                   {EffectiveListValue(this, "scheduling.cron")}
                 </Row>
-                <Row>
+                {!this.props.simplifyMode && (<Row>
                   <LabelColumn
-                    name="Run Missed Snapshots on Startup"
-                    help="Immediately run any missed snapshots when kopia starts (only relevant for Time-of-day snapshots)"
+                    name="시작 시 놓친 스냅샷 실행"
+                    help="Kopia 시작 시 놓친 스냅샷을 즉시 실행 (특정 시각 스냅샷에만 해당)"
                   />
                   <ValueColumn>
-                    {OptionalBoolean(this, "", "policy.scheduling.runMissed", "inherit from parent")}
+                    {OptionalBoolean(this, "", "policy.scheduling.runMissed", "상위 정책 상속")}
                   </ValueColumn>
                   {EffectiveBooleanValue(this, "scheduling.runMissed")}
-                </Row>
-                <Row>
+                </Row>)}
+                {!this.props.simplifyMode && (<Row>
                   <LabelColumn
-                    name="Manual Snapshots Only"
-                    help="Only create snapshots manually (disables scheduled snapshots)"
+                    name="수동 스냅샷만 허용"
+                    help="스냅샷을 수동으로만 생성 (예약 스냅샷 비활성화)"
                   />
                   <ValueColumn>
-                    {OptionalBoolean(this, "", "policy.scheduling.manual", "inherit from parent")}
+                    {OptionalBoolean(this, "", "policy.scheduling.manual", "상위 정책 상속")}
                   </ValueColumn>
                   {EffectiveBooleanValue(this, "scheduling.manual")}
-                </Row>
-                <Row>
+                </Row>)}
+                {!this.props.simplifyMode && (<Row>
                   <LabelColumn
-                    name="Upcoming Snapshots"
-                    help="Times of upcoming snapshots calculated based on policy parameters"
+                    name="예정된 스냅샷"
+                    help="현재 정책 기준으로 계산된 예정 스냅샷 시각"
                   />
                   <ValueColumn></ValueColumn>
                   <EffectiveValueColumn>{UpcomingSnapshotTimes(this.state?.resolved)}</EffectiveValueColumn>
-                </Row>
+                </Row>)}
               </Accordion.Body>
             </Accordion.Item>
-            <Accordion.Item eventKey="upload">
+            {!this.props.simplifyMode && (<Accordion.Item eventKey="upload">
               <Accordion.Header>
                 <FontAwesomeIcon icon={faUpload} />
                 &nbsp;Upload
@@ -747,8 +751,8 @@ export class PolicyEditor extends Component {
                   {EffectiveValue(this, "upload.maxParallelFileReads")}
                 </Row>
               </Accordion.Body>
-            </Accordion.Item>
-            <Accordion.Item eventKey="snapshot-actions">
+            </Accordion.Item>)}
+            {!this.props.simplifyMode && (<Accordion.Item eventKey="snapshot-actions">
               <Accordion.Header>
                 <FontAwesomeIcon icon={faCogs} />
                 &nbsp;Snapshot Actions
@@ -773,8 +777,8 @@ export class PolicyEditor extends Component {
                 {ActionRowTimeout(this, "actions.afterSnapshotRoot.timeout")}
                 {ActionRowMode(this, "actions.afterSnapshotRoot.mode")}
               </Accordion.Body>
-            </Accordion.Item>
-            <Accordion.Item eventKey="folder-actions">
+            </Accordion.Item>)}
+            {!this.props.simplifyMode && (<Accordion.Item eventKey="folder-actions">
               <Accordion.Header>
                 <FontAwesomeIcon icon={faCog} />
                 &nbsp;Folder Actions
@@ -789,8 +793,8 @@ export class PolicyEditor extends Component {
                 {ActionRowTimeout(this, "actions.afterFolder.timeout")}
                 {ActionRowMode(this, "actions.afterFolder.mode")}
               </Accordion.Body>
-            </Accordion.Item>
-            <Accordion.Item eventKey="logging">
+            </Accordion.Item>)}
+            {!this.props.simplifyMode && (<Accordion.Item eventKey="logging">
               <Accordion.Header>
                 <FontAwesomeIcon icon={faFileAlt} />
                 &nbsp;Logging
@@ -837,8 +841,8 @@ export class PolicyEditor extends Component {
                   {EffectiveValue(this, "logging.entries.cacheMiss")}
                 </Row>
               </Accordion.Body>
-            </Accordion.Item>
-            <Accordion.Item eventKey="other">
+            </Accordion.Item>)}
+            {!this.props.simplifyMode && (<Accordion.Item eventKey="other">
               <Accordion.Header>
                 <FontAwesomeIcon icon={faMagic} />
                 &nbsp;Other
@@ -858,7 +862,7 @@ export class PolicyEditor extends Component {
                   </WideValueColumn>
                 </Row>
               </Accordion.Body>
-            </Accordion.Item>
+            </Accordion.Item>)}
           </Accordion>
 
           {!this.props.embedded && (
@@ -897,7 +901,7 @@ export class PolicyEditor extends Component {
   }
 }
 
-PolicyEditor.propTypes = {
+PolicyEditorInner.propTypes = {
   path: PropTypes.string,
   close: PropTypes.func,
   embedded: PropTypes.bool,
@@ -908,4 +912,16 @@ PolicyEditor.propTypes = {
   userName: PropTypes.string,
   host: PropTypes.string,
   policyOverride: PropTypes.object,
+  simplifyMode: PropTypes.bool,
 };
+
+/**
+ * Functional wrapper that injects simplifyMode from AuthContext so the class
+ * component above can hide non-essential Accordion sections in simple mode.
+ * forwardRef preserves the ref pattern used by SnapshotCreate (calls
+ * policyEditorRef.current.getAndValidatePolicy()).
+ */
+export const PolicyEditor = React.forwardRef(function PolicyEditor(props, ref) {
+  const simplifyMode = useSimplifyMode();
+  return <PolicyEditorInner ref={ref} {...props} simplifyMode={simplifyMode} />;
+});

@@ -47,10 +47,9 @@ class SnapshotCreateInternal extends Component {
         redirect(error);
       });
 
-    // Vaultkeeper 로그인 상태면 backend policy 조회
+    // Vaultkeeper 로그인 상태면 backend policy 조회 (backend URL 은 createVaultkeeperClient 가 env fallback 으로 resolve)
     const apiKey = localStorage.getItem("vaultkeeper-apiKey");
-    const endpoint = localStorage.getItem("vaultkeeper-endpoint");
-    if (apiKey && endpoint) {
+    if (apiKey) {
       const vkClient = createVaultkeeperClient();
       vkClient
         .get("/policies")
@@ -171,11 +170,10 @@ class SnapshotCreateInternal extends Component {
         })
         .then(async (_result) => {
           console.log("[vaultkeeper] POST /api/v1/sources 성공, backend 보고 시작");
-          // Vaultkeeper backend에 스냅샷 보고 (best-effort)
+          // Vaultkeeper backend에 스냅샷 보고 (best-effort). backend URL 은 createVaultkeeperClient 가 env fallback 으로 resolve
           const apiKey = localStorage.getItem("vaultkeeper-apiKey");
-          const endpoint = localStorage.getItem("vaultkeeper-endpoint");
-          console.log("[vaultkeeper] apiKey:", apiKey ? "있음" : "없음", "endpoint:", endpoint);
-          if (apiKey && endpoint) {
+          console.log("[vaultkeeper] apiKey:", apiKey ? "있음" : "없음");
+          if (apiKey) {
             try {
               const vkClient = createVaultkeeperClient();
               const snapshotRes = await vkClient.post(

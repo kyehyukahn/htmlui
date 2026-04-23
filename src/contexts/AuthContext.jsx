@@ -5,9 +5,8 @@ import {
   saveVaultkeeperSession,
   performClientLogout,
   autoConnectRepository,
-  RepositoryNotFoundError,
 } from "../utils/vaultkeeperBootstrap";
-import { createLoginClient } from "../utils/vaultkeeperApi";
+import { createLoginClient, getVaultkeeperBackendUrl } from "../utils/vaultkeeperApi";
 import { registerNotificationProfile } from "../utils/vaultkeeperSetup";
 
 export const AuthContext = createContext(null);
@@ -29,66 +28,86 @@ function readSimplifyMode() {
   return localStorage.getItem("vaultkeeper-simplifyMode") !== "false";
 }
 
-function clearAllVaultkeeperKeys() {
+/**
+ * One-shot migration: delete localStorage keys that the current bundle no
+ * longer writes. Runs idempotently on every app load — removeItem on a
+ * missing key is a no-op. Keeps existing users' browsers from carrying
+ * around stale sensitive data (storageConfig) or redundant caches
+ * (endpoint, notificationRegistered) indefinitely.
+ */
+function runLegacyKeyCleanup() {
   [
-    "vaultkeeper-apiKey",
-    "vaultkeeper-clientId",
-    "vaultkeeper-endpoint",
-    "vaultkeeper-storageConfig",
-    "vaultkeeper-simplifyMode",
-    "vaultkeeper-notificationRegistered",
-    "vaultkeeper-userEmail",
+    "vaultkeeper-storageConfig",        // sensitive — moved to memory only
+    "vaultkeeper-endpoint",             // redundant with VITE_VAULTKEEPER_BACKEND_URL
+    "vaultkeeper-notificationRegistered", // kopia now queried directly
   ].forEach((k) => localStorage.removeItem(k));
 }
 
+function clearAllVaultkeeperKeys() {
+  // Active keys written by the current bundle.
+  [
+    "vaultkeeper-apiKey",
+    "vaultkeeper-clientId",
+    "vaultkeeper-simplifyMode",
+    "vaultkeeper-userEmail",
+  ].forEach((k) => localStorage.removeItem(k));
+  // And anything a legacy bundle left behind.
+  runLegacyKeyCleanup();
+}
+
 export function AuthProvider({ children }) {
-  const [state, setState] = useState(INIT_STATE);
+  // Derive initial status synchronously from localStorage so the very first
+  // render does NOT flash LoginPage when a session is about to be restored.
+  //   has apiKey in localStorage → start in "restoring" (splash screen)
+  //   no  apiKey                 → start in "unauthenticated" (login page)
+  const [state, setState] = useState(() => {
+    // Clean legacy keys before anything else reads state.
+    runLegacyKeyCleanup();
+    return {
+      ...INIT_STATE,
+      status: localStorage.getItem("vaultkeeper-apiKey") ? "restoring" : "unauthenticated",
+    };
+  });
 
   const set = useCallback((patch) => setState((prev) => ({ ...prev, ...patch })), []);
 
-  // Initial mount: try session restore
+  // Initial mount: try session restore.
+  // NOTE: initial `status` is already "restoring" (if apiKey present) or
+  // "unauthenticated" (if not) per the useState lazy initializer above, so
+  // no extra transition is needed here — we only act when apiKey is present.
   useEffect(() => {
     const apiKey = localStorage.getItem("vaultkeeper-apiKey");
     if (!apiKey) {
-      set({ status: "unauthenticated" });
-      return;
+      return; // already "unauthenticated"
     }
-    set({ status: "bootstrapping" });
 
     axios.get("/api/v1/repo/status")
-      .then(async (res) => {
+      .then((res) => {
         const { connected, description } = res.data || {};
         const clientId = localStorage.getItem("vaultkeeper-clientId");
-        const storageRaw = localStorage.getItem("vaultkeeper-storageConfig");
-        const storageConfig = storageRaw ? JSON.parse(storageRaw) : null;
         const simplifyMode = readSimplifyMode();
         const userEmail = localStorage.getItem("vaultkeeper-userEmail");
 
         if (connected) {
+          // Kopia has re-opened the repository from its own persisted config
+          // (~/Library/Application Support/kopia/repository.config + the
+          // adjacent .kopia-password file). We never need to re-send S3
+          // credentials from the browser for this path.
           set({
             status: "authenticated",
-            apiKey, clientId, simplifyMode, storageConfig, userEmail,
+            apiKey, clientId, simplifyMode, userEmail,
+            storageConfig: null,
             isRepositoryConnected: true,
             repoDescription: description || "",
           });
           return;
         }
-        if (storageConfig) {
-          try {
-            await autoConnectRepository(storageConfig);
-            set({
-              status: "authenticated",
-              apiKey, clientId, simplifyMode, storageConfig, userEmail,
-              isRepositoryConnected: true,
-            });
-          } catch (e) {
-            const msg = e instanceof RepositoryNotFoundError
-              ? "저장소가 아직 초기화되지 않았습니다. 관리자에게 문의하세요."
-              : "저장소 연결 실패. 다시 시도해주세요.";
-            set({ status: "error", error: msg });
-          }
-          return;
-        }
+
+        // Repo disconnected somehow. We used to auto-reconnect using a
+        // localStorage-cached storageConfig, but that required persisting
+        // S3 secrets + repo password in the browser. Instead, force a fresh
+        // login — the /auth/client-login response will provide storageConfig
+        // in memory and autoConnectRepository can run from there.
         clearAllVaultkeeperKeys();
         setState({ ...INIT_STATE, status: "unauthenticated" });
       })
@@ -99,9 +118,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   const login = useCallback(async ({ email, password, hostname }) => {
-    const endpoint = (localStorage.getItem("vaultkeeper-endpoint")
-      || import.meta.env.VITE_VAULTKEEPER_BACKEND_URL
-      || "http://localhost:3000/api/v1").replace(/\/+$/, "");
+    const endpoint = getVaultkeeperBackendUrl();
 
     set({ status: "bootstrapping", error: null });
 
@@ -137,7 +154,6 @@ export function AuthProvider({ children }) {
       endpoint,
       apiKey: data.apiKey,
       clientId: data.clientId,
-      storageConfig: data.storageConfig,
       simplifyMode: data.simplifyMode,
       userEmail: email,
     });
@@ -145,13 +161,12 @@ export function AuthProvider({ children }) {
     try {
       const st = await axios.get("/api/v1/repo/status");
       if (!st.data?.connected) {
+        // First login for this StorageConfig creates the kopia repo; subsequent
+        // logins just connect. autoConnectRepository handles both paths.
         await autoConnectRepository(data.storageConfig);
       }
-    } catch (e) {
-      const msg = e instanceof RepositoryNotFoundError
-        ? "저장소가 아직 초기화되지 않았습니다. 관리자에게 문의하세요."
-        : "저장소 연결 실패. 다시 시도해주세요.";
-      set({ status: "error", error: msg });
+    } catch {
+      set({ status: "error", error: "저장소 연결 실패. 다시 시도해주세요." });
       return;
     }
 

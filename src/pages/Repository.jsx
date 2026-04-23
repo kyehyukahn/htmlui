@@ -298,25 +298,6 @@ export class Repository extends Component {
                 )}
               </Col>
             </Row>
-            {(import.meta.env.VITE_APP_ENV === "local" || import.meta.env.VITE_APP_ENV === "dev") && (
-              <div style={{ marginTop: "1rem", padding: "0.75rem", border: "2px dashed #dc3545", borderRadius: "6px", backgroundColor: "#fff9e6" }}>
-                <Form.Label className="text-danger fw-bold mb-2">DEV</Form.Label>
-                <div>
-                  <Button
-                    size="sm"
-                    variant="danger"
-                    onClick={async () => {
-                      localStorage.removeItem("vaultkeeper-notificationRegistered");
-                      await registerNotificationProfile();
-                      alert("Snapshot webhook registered!");
-                    }}
-                    disabled={!localStorage.getItem("vaultkeeper-apiKey")}
-                  >
-                    Register Snapshot Webhook
-                  </Button>{" "}
-                </div>
-              </div>
-            )}
           </Form>
           <Row>
             <Col xs={12}>

@@ -1,5 +1,5 @@
 import React, { Component } from "react";
-import { createLoginClient } from "../utils/vaultkeeperApi";
+import { createLoginClient, getVaultkeeperBackendUrl } from "../utils/vaultkeeperApi";
 import { saveVaultkeeperSession, storageConfigToS3Settings } from "../utils/vaultkeeperBootstrap";
 import Button from "react-bootstrap/Button";
 import Col from "react-bootstrap/Col";
@@ -13,15 +13,19 @@ export class SetupRepositoryVaultkeeper extends Component {
   constructor(props) {
     super(props);
 
-    const savedConfig = localStorage.getItem("vaultkeeper-storageConfig");
+    // Always start with a fresh login form. storageConfig (S3 secret + repo
+    // password) is not persisted in localStorage anymore — the component
+    // fetches it live via /auth/client-login every time the setup wizard
+    // opens. backendUrl falls back to the env default if no previous
+    // endpoint is remembered.
     this.state = {
-      backendUrl: localStorage.getItem("vaultkeeper-endpoint") || import.meta.env.VITE_VAULTKEEPER_BACKEND_URL || "",
+      backendUrl: getVaultkeeperBackendUrl(),
       email: "",
       password: "",
-      loggedIn: !!savedConfig,
+      loggedIn: false,
       isLoading: false,
       error: null,
-      storageConfig: savedConfig ? JSON.parse(savedConfig) : null,
+      storageConfig: null,
     };
   }
 

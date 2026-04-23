@@ -13,16 +13,22 @@ export function LoginPage() {
   const [hostname, setHostname] = useState("");
 
   useEffect(() => {
-    axios.get("/api/v1/repo/status")
-      .then((r) => setHostname(r.data?.hostname || "unknown"))
-      .catch(() => setHostname("unknown"));
+    // GET /current-user returns OS hostname regardless of repo connection
+    // state. /repo/status only has hostname when connected, so using that
+    // meant a logout-then-login cycle (repo disconnected in between) could
+    // resolve to "unknown" and spawn a duplicate backend client record.
+    axios.get("/api/v1/current-user")
+      .then((r) => setHostname(r.data?.hostname || ""))
+      .catch(() => setHostname(""));
   }, []);
 
   const isBootstrapping = ctx.status === "bootstrapping";
+  const hostnameReady = !!hostname;
 
   const submit = async (e) => {
     e.preventDefault();
-    try { await ctx.login({ email, password, hostname: hostname || "unknown" }); } catch { /* ctx sets error */ }
+    if (!hostnameReady) return; // guard: never submit with empty/unknown hostname
+    try { await ctx.login({ email, password, hostname }); } catch { /* ctx sets error */ }
   };
 
   return (
@@ -53,8 +59,12 @@ export function LoginPage() {
               disabled={isBootstrapping}
             />
           </Form.Group>
-          <Button type="submit" variant="primary" className="w-100" disabled={isBootstrapping}>
-            {isBootstrapping ? (<><Spinner size="sm" animation="border" /> 연결 중...</>) : "Sign in"}
+          <Button type="submit" variant="primary" className="w-100" disabled={isBootstrapping || !hostnameReady}>
+            {isBootstrapping
+              ? (<><Spinner size="sm" animation="border" /> 연결 중...</>)
+              : !hostnameReady
+                ? (<><Spinner size="sm" animation="border" /> 호스트 정보 확인 중...</>)
+                : "Sign in"}
           </Button>
         </Form>
       </div>

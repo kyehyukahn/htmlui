@@ -1,4 +1,5 @@
 import axios from "axios";
+import { getVaultkeeperBackendUrl } from "./vaultkeeperApi";
 
 /**
  * Vaultkeeper 세션 부트스트랩 헬퍼.
@@ -11,21 +12,25 @@ import axios from "axios";
 
 /**
  * 로그인/세션 복원 시 벌크 저장. simplifyMode 가 undefined/null 이면 기본 true.
+ *
+ * 다음은 **localStorage 에 쓰지 않는다** — 각 항목에 대한 사유:
+ *   - storageConfig (S3 secret + repo password): 민감 정보. Kopia 가 자체
+ *     영속화하므로 브라우저 측 저장 불필요.
+ *   - endpoint: import.meta.env.VITE_VAULTKEEPER_BACKEND_URL 의 복사본일
+ *     뿐이라 중복. 모든 reader 가 getVaultkeeperBackendUrl() 로 env fallback.
+ *   - notificationRegistered: kopia 에 직접 질의해서 판단 (단일 진실 소스).
+ *
+ * 레거시 데이터는 VK_LS_KEYS 에 포함되어 다음 로그아웃 때 자동 청소된다.
+ *
  * @param {object} params
- * @param {string} params.endpoint - vaultkeeper backend base URL; trailing slashes stripped
  * @param {string} params.apiKey
  * @param {string} params.clientId
- * @param {object|null} [params.storageConfig] - truthy 면 JSON 으로 저장, falsy 면 스킵
  * @param {boolean|null} [params.simplifyMode]
  * @param {string|null} [params.userEmail] - 로그인한 사용자 이메일; falsy 면 스킵
  */
-export function saveVaultkeeperSession({ endpoint, apiKey, clientId, storageConfig, simplifyMode, userEmail }) {
+export function saveVaultkeeperSession({ apiKey, clientId, simplifyMode, userEmail }) {
   localStorage.setItem("vaultkeeper-apiKey", apiKey);
   localStorage.setItem("vaultkeeper-clientId", clientId);
-  localStorage.setItem("vaultkeeper-endpoint", endpoint.replace(/\/+$/, ""));
-  if (storageConfig) {
-    localStorage.setItem("vaultkeeper-storageConfig", JSON.stringify(storageConfig));
-  }
   const sm = (simplifyMode === undefined || simplifyMode === null) ? true : !!simplifyMode;
   localStorage.setItem("vaultkeeper-simplifyMode", String(sm));
   if (userEmail) {
@@ -67,30 +72,67 @@ function buildRepoRequest(storageConfig) {
 /**
  * Kopia 서버에 repo 연결을 자동 시도한다.
  * - /api/v1/repo/exists 로 저장소 존재 확인
- * - 존재하면 /api/v1/repo/connect
- * - 미존재면 RepositoryNotFoundError throw (심플모드는 생성 경로 미지원)
+ *     · 200 OK (빈 body)        → 존재함 → /repo/connect
+ *     · 4xx code=NOT_INITIALIZED → 미존재 → /repo/create (kopia 기본 알고리즘으로 초기화,
+ *       성공 시 kopia 측에서 자동으로 Connect 상태까지 세팅)
+ * - 동시 로그인 경쟁: /repo/create 가 ALREADY_INITIALIZED 를 돌려주면 → /repo/connect 폴백
+ *
+ * NOTE: 첫 로그인하는 클라이언트가 backend 의 storageConfig(+dataProtectionKey)를
+ * 이용해 kopia repo 를 초기화한다. 같은 storageConfig 를 공유하는 후속 클라이언트들은
+ * exists 분기에서 곧바로 connect 한다.
  */
 export async function autoConnectRepository(storageConfig) {
   const request = buildRepoRequest(storageConfig);
-  const existsResp = await axios.post("/api/v1/repo/exists", request);
-  if (!existsResp.data || existsResp.data.exists !== true) {
-    throw new RepositoryNotFoundError();
+
+  let exists = true;
+  try {
+    await axios.post("/api/v1/repo/exists", request);
+  } catch (err) {
+    const code = err?.response?.data?.code;
+    if (code === "NOT_INITIALIZED") {
+      exists = false;
+    } else {
+      throw err;
+    }
   }
-  await axios.post("/api/v1/repo/connect", request);
+
+  if (exists) {
+    await axios.post("/api/v1/repo/connect", request);
+    return;
+  }
+
+  const createRequest = { ...request, options: {} };
+  try {
+    await axios.post("/api/v1/repo/create", createRequest);
+  } catch (err) {
+    const code = err?.response?.data?.code;
+    if (code === "ALREADY_INITIALIZED") {
+      // race: another client initialized between our exists-check and create.
+      await axios.post("/api/v1/repo/connect", request);
+      return;
+    }
+    throw err;
+  }
 }
 
+// Active keys the current bundle writes during login.
 const VK_LS_KEYS = [
   "vaultkeeper-apiKey",
   "vaultkeeper-clientId",
-  "vaultkeeper-endpoint",
-  "vaultkeeper-storageConfig",
   "vaultkeeper-simplifyMode",
-  "vaultkeeper-notificationRegistered",
   "vaultkeeper-userEmail",
 ];
 
+// Legacy keys older bundles used to write. Included in clearVaultkeeperSession
+// so that logout leaves nothing behind on upgraded browsers.
+const VK_LS_LEGACY_KEYS = [
+  "vaultkeeper-storageConfig",        // sensitive
+  "vaultkeeper-endpoint",             // redundant with env var
+  "vaultkeeper-notificationRegistered", // kopia queried directly now
+];
+
 function clearVaultkeeperSession() {
-  VK_LS_KEYS.forEach((k) => localStorage.removeItem(k));
+  [...VK_LS_KEYS, ...VK_LS_LEGACY_KEYS].forEach((k) => localStorage.removeItem(k));
 }
 
 /**
@@ -99,15 +141,15 @@ function clearVaultkeeperSession() {
  * 기존 Repository.jsx::logout 의 로직을 함수로 추출해 풀모드/심플모드 양쪽이 공유한다.
  */
 export async function performClientLogout() {
-  const endpoint = localStorage.getItem("vaultkeeper-endpoint");
   const apiKey = localStorage.getItem("vaultkeeper-apiKey");
+  const endpoint = getVaultkeeperBackendUrl();
 
   try { await axios.post("/api/v1/repo/disconnect", {}); } catch { /* best-effort */ }
 
-  if (endpoint && apiKey) {
+  if (apiKey) {
     try {
       await axios.post(
-        `${endpoint.replace(/\/+$/, "")}/auth/client-logout`,
+        `${endpoint}/auth/client-logout`,
         {},
         { headers: { "X-API-Key": apiKey } },
       );

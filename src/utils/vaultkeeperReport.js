@@ -5,9 +5,9 @@ import { createVaultkeeperClient } from "./vaultkeeperApi";
  * @param {{ snapshotId: string, restorePath: string, status: string, errorMessage?: string }} params
  */
 export async function reportRestore({ snapshotId, restorePath, status, errorMessage }) {
-  const backendUrl = localStorage.getItem("vaultkeeper-endpoint");
   const apiKey = localStorage.getItem("vaultkeeper-apiKey");
-  if (!backendUrl || !apiKey) return;
+  if (!apiKey) return;
+  // backendUrl 은 createVaultkeeperClient 내부에서 env/기본값 체인으로 resolve 됨
 
   try {
     const vkClient = createVaultkeeperClient();

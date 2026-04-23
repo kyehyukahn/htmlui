@@ -50,7 +50,7 @@ describe("UIPreferencesContext", () => {
         expect(capturedPreferences.pageSize).toBe(10);
         expect(capturedPreferences.bytesStringBase2).toBe(false);
         expect(capturedPreferences.defaultSnapshotViewAll).toBe(false);
-        expect(capturedPreferences.fontSize).toBe("fs-6");
+        expect(capturedPreferences.fontSize).toBe("fs-5");
       });
 
       consoleSpy.mockRestore();
@@ -80,7 +80,9 @@ describe("UIPreferencesContext", () => {
       );
 
       await waitFor(() => {
-        expect(capturedPreferences.theme).toBe("dark");
+        // VaultKeeper default theme is "ocean"; browser prefers-dark no longer
+        // overrides when API returns empty theme.
+        expect(capturedPreferences.theme).toBe("ocean");
       });
     });
   });
@@ -135,8 +137,8 @@ describe("UIPreferencesContext", () => {
       );
 
       await waitFor(() => {
-        expect(capturedPreferences.theme).toBe("light"); // Should fall back to default
-        expect(capturedPreferences.fontSize).toBe("fs-6"); // Should fall back to default
+        expect(capturedPreferences.theme).toBe("ocean"); // Should fall back to default
+        expect(capturedPreferences.fontSize).toBe("fs-5"); // Should fall back to default
       });
     });
 

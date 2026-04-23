@@ -138,10 +138,10 @@ it("e2e", async () => {
   // change a field
   fireEvent.change(getByTestId("control-policy.retention.keepLatest"), { target: { value: "44" } });
 
-  // this will trigger resolve and will update effective field: "(Defined by this policy)"
+  // this will trigger resolve and will update effective field: "(이 정책에서 설정)"
   await waitFor(() => expect(getByTestId("effective-retention.keepLatest").value).toBe("44"));
   await waitFor(() =>
-    expect(getByTestId("definition-retention.keepLatest").innerHTML).toEqual("(Defined by this policy)"),
+    expect(getByTestId("definition-retention.keepLatest").innerHTML).toEqual("(이 정책에서 설정)"),
   );
 
   fireEvent.click(getByTestId("button-save"));

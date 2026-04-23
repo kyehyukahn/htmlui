@@ -75,7 +75,7 @@ describe("AuthContext login/logout", () => {
       simplifyMode: true,
     });
     mock.onGet("/api/v1/repo/status").reply(200, { connected: false });
-    mock.onPost("/api/v1/repo/exists").reply(200, { exists: true });
+    mock.onPost("/api/v1/repo/exists").reply(200, {});
     mock.onPost("/api/v1/repo/connect").reply(200);
     mock.onPost("/api/v1/notificationProfiles").reply(200);
 
@@ -96,14 +96,39 @@ describe("AuthContext login/logout", () => {
     expect(localStorage.getItem("vaultkeeper-apiKey")).toBe("vk");
   });
 
-  it("login surfaces RepositoryNotFoundError via error status", async () => {
+  it("first-login path: exists reports NOT_INITIALIZED → auto /repo/create → authenticated", async () => {
     mock.onPost(/\/auth\/client-login$/).reply(200, {
       status: "active", apiKey: "vk", clientId: "c1",
       storageConfig: { endpoint: "", bucketName: "", accessKey: "", secretAccessKey: "", region: "" },
       simplifyMode: true,
     });
     mock.onGet("/api/v1/repo/status").reply(200, { connected: false });
-    mock.onPost("/api/v1/repo/exists").reply(200, { exists: false });
+    mock.onPost("/api/v1/repo/exists").reply(400, { code: "NOT_INITIALIZED", error: "repository not initialized" });
+    mock.onPost("/api/v1/repo/create").reply(200, {});
+    mock.onGet(/\/notificationProfiles\/vaultkeeper-report/).reply(404);
+    mock.onPost(/\/notificationProfiles/).reply(200, {});
+
+    let captured;
+    render(<AuthProvider><Harness onReady={(c) => { captured = c; }} /></AuthProvider>);
+    await waitFor(() => expect(captured.status).toBe("unauthenticated"));
+
+    await act(async () => {
+      try { await captured.login({ email: "a@b.c", password: "pw", hostname: "h" }); } catch { /* swallow */ }
+    });
+
+    await waitFor(() => expect(captured.status).toBe("authenticated"));
+    expect(mock.history.post.some((r) => r.url === "/api/v1/repo/create")).toBe(true);
+  });
+
+  it("login surfaces generic error status when /repo/create fails", async () => {
+    mock.onPost(/\/auth\/client-login$/).reply(200, {
+      status: "active", apiKey: "vk", clientId: "c1",
+      storageConfig: { endpoint: "", bucketName: "", accessKey: "", secretAccessKey: "", region: "" },
+      simplifyMode: true,
+    });
+    mock.onGet("/api/v1/repo/status").reply(200, { connected: false });
+    mock.onPost("/api/v1/repo/exists").reply(400, { code: "NOT_INITIALIZED", error: "repository not initialized" });
+    mock.onPost("/api/v1/repo/create").reply(500, { error: "storage down" });
 
     let captured;
     render(<AuthProvider><Harness onReady={(c) => { captured = c; }} /></AuthProvider>);

@@ -12,11 +12,12 @@ beforeEach(() => {
   mock = new MockAdapter(axios);
   mock.onGet("/api/v1/ui-preferences").reply(200, {});
   mock.onGet("/api/v1/repo/status").reply(200, { connected: true, description: "d" });
+  mock.onGet("/api/v1/sources").reply(200, { sources: [] });
   mock.onAny().reply(200, {});
 });
 afterEach(() => mock.restore());
 
-it("renders Snapshots / Repository nav and Sign out button", () => {
+it("renders the full sidebar (5 nav items) and Logout button", () => {
   const auth = {
     status: "authenticated", isRepositoryConnected: true,
     repoDescription: "repo-desc", runningTaskCount: 0,
@@ -27,7 +28,10 @@ it("renders Snapshots / Repository nav and Sign out button", () => {
     <MemoryRouter initialEntries={["/snapshots"]}><FullShell /></MemoryRouter>
   </AuthContext.Provider>);
 
-  expect(screen.getByTestId("tab-snapshots")).toBeTruthy();
-  expect(screen.getByTestId("tab-repo")).toBeTruthy();
-  expect(screen.getByRole("button", { name: /sign out/i })).toBeTruthy();
+  expect(screen.getByTestId("nav-snapshots")).toBeTruthy();
+  expect(screen.getByTestId("nav-policies")).toBeTruthy();
+  expect(screen.getByTestId("nav-tasks")).toBeTruthy();
+  expect(screen.getByTestId("nav-repo")).toBeTruthy();
+  expect(screen.getByTestId("nav-preferences")).toBeTruthy();
+  expect(screen.getByRole("button", { name: /logout/i })).toBeTruthy();
 });

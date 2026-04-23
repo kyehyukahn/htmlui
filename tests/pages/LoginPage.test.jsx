@@ -16,21 +16,23 @@ function renderWithCtx(ctxValue) {
 }
 
 describe("LoginPage", () => {
-  it("renders email, password inputs and submit button", () => {
-    mock.onGet("/api/v1/repo/status").reply(200, { hostname: "h" });
+  it("renders email, password inputs and submit button", async () => {
+    mock.onGet("/api/v1/current-user").reply(200, { hostname: "h" });
     renderWithCtx({ status: "unauthenticated", error: null, login: vi.fn() });
     expect(screen.getByLabelText(/email/i)).toBeTruthy();
     expect(screen.getByLabelText(/password/i)).toBeTruthy();
-    expect(screen.getByRole("button", { name: /sign in|로그인/i })).toBeTruthy();
+    // Button starts as "호스트 정보 확인 중..." while hostname fetch is pending,
+    // then flips to "Sign in" once /current-user resolves.
+    await waitFor(() => expect(screen.getByRole("button", { name: /sign in|로그인/i })).toBeTruthy());
   });
 
   it("calls ctx.login with email, password, hostname on submit", async () => {
-    mock.onGet("/api/v1/repo/status").reply(200, { hostname: "host-1" });
+    mock.onGet("/api/v1/current-user").reply(200, { hostname: "host-1" });
     const login = vi.fn().mockResolvedValue();
     renderWithCtx({ status: "unauthenticated", error: null, login });
 
     // Wait for hostname fetch to settle before submit
-    await waitFor(() => expect(mock.history.get.some((r) => r.url === "/api/v1/repo/status")).toBe(true));
+    await waitFor(() => expect(mock.history.get.some((r) => r.url === "/api/v1/current-user")).toBe(true));
 
     fireEvent.change(screen.getByLabelText(/email/i), { target: { value: "a@b.c" } });
     fireEvent.change(screen.getByLabelText(/password/i), { target: { value: "pw" } });
@@ -40,13 +42,13 @@ describe("LoginPage", () => {
   });
 
   it("renders error message from ctx", () => {
-    mock.onGet("/api/v1/repo/status").reply(200, {});
+    mock.onGet("/api/v1/current-user").reply(200, {});
     renderWithCtx({ status: "error", error: "Bad credentials", login: vi.fn() });
     expect(screen.getByText(/bad credentials/i)).toBeTruthy();
   });
 
   it("disables submit button while bootstrapping", () => {
-    mock.onGet("/api/v1/repo/status").reply(200, {});
+    mock.onGet("/api/v1/current-user").reply(200, {});
     renderWithCtx({ status: "bootstrapping", error: null, login: vi.fn() });
     const btn = screen.getByRole("button");
     expect(btn.hasAttribute("disabled")).toBe(true);
