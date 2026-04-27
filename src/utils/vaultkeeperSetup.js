@@ -8,10 +8,15 @@ const PROFILE_NAME = "vaultkeeper-report";
  * 없으면 생성한다.
  *
  * Data source hierarchy 원칙:
- *   1차 조회는 **kopia**  — GET /api/v1/notificationProfiles/vaultkeeper-report
- *     · 200 → 이미 등록됨. 끝.
- *     · 404 → 미등록. POST 로 신규 등록.
- *     · 기타 에러 → best-effort, 로그만 남기고 return.
+ *   1차 조회는 **kopia** — GET /api/v1/notificationProfiles (목록)
+ *     · 응답에 PROFILE_NAME 이 있으면 이미 등록됨. 끝.
+ *     · 없으면 POST 로 신규 등록.
+ *     · 네트워크/인증 에러 → best-effort, 로그만 남기고 return.
+ *
+ * 단일 프로필 조회 (GET /notificationProfiles/{name}) 는 미등록 시 kopia 가
+ * HTTP 500 ("internal server error: profile not found") 을 반환하므로 404 만으로
+ * "미등록"을 판별할 수 없다. 목록 endpoint 는 항상 200 + (null|배열) 을 돌려주므로
+ * 상태 코드 해석에 의존하지 않고 안전하게 비교 가능하다.
  *
  * 이전 버전에서는 localStorage 의 "vaultkeeper-notificationRegistered" 플래그로
  * 중복 호출을 막았는데 — 그 플래그가 kopia 실제 상태와 괴리되면 사용자가
@@ -23,17 +28,19 @@ export async function registerNotificationProfile() {
   if (!apiKey) return;
   const backendUrl = getVaultkeeperBackendUrl();
 
-  // 1차: kopia 에 프로필 존재 여부 확인
+  // 1차: kopia 프로필 목록을 받아서 PROFILE_NAME 존재 여부 확인
+  let profiles = [];
   try {
-    await axios.get(`/api/v1/notificationProfiles/${PROFILE_NAME}`);
-    // 200 OK → 이미 등록됨
-    return;
+    const { data } = await axios.get("/api/v1/notificationProfiles");
+    profiles = Array.isArray(data) ? data : [];
   } catch (err) {
-    if (err?.response?.status !== 404) {
-      console.warn("[vaultkeeper] notification profile check failed:", err);
-      return;
-    }
-    // 404 → 미등록. 아래 등록 블록으로 진행.
+    console.warn("[vaultkeeper] notification profile list failed:", err);
+    return;
+  }
+
+  if (profiles.some((p) => p?.profile === PROFILE_NAME)) {
+    // 이미 등록됨
+    return;
   }
 
   // 2차: kopia 에 등록
