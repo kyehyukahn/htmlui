@@ -38,9 +38,26 @@ export async function registerNotificationProfile() {
     return;
   }
 
-  if (profiles.some((p) => p?.profile === PROFILE_NAME)) {
-    // 이미 등록됨
-    return;
+  // 멱등성 + endpoint/apiKey 변화 감지:
+  // 프로필 이름만으로는 부족 — backend URL 이 dev → prod 로 바뀌거나 사용자 재발급으로
+  // apiKey 가 변하면, 옛 프로필 그대로 두면 webhook 이 잘못된 곳으로 영원히 발사된다.
+  // → endpoint + headers 가 모두 일치할 때만 idempotent 로 간주, 아니면 DELETE 후 재등록.
+  const desiredEndpoint = `${backendUrl}/report/snapshots`;
+  const desiredHeaders = `Content-Type: text/plain\nX-API-Key: ${apiKey}`;
+  const existing = profiles.find((p) => p?.profile === PROFILE_NAME);
+  if (existing) {
+    const currentEndpoint = existing?.method?.config?.endpoint;
+    const currentHeaders = existing?.method?.config?.headers;
+    if (currentEndpoint === desiredEndpoint && currentHeaders === desiredHeaders) {
+      return; // 진짜로 동일 → no-op
+    }
+    try {
+      await axios.delete(`/api/v1/notificationProfiles/${PROFILE_NAME}`);
+      console.log("[vaultkeeper] Stale notification profile removed (endpoint/apiKey changed)");
+    } catch (err) {
+      console.warn("[vaultkeeper] Stale notification profile delete failed:", err);
+      return; // POST 가 ALREADY_EXISTS 로 깨질 수 있어 중단
+    }
   }
 
   // 2차: kopia 에 등록
@@ -50,10 +67,10 @@ export async function registerNotificationProfile() {
       method: {
         type: "webhook",
         config: {
-          endpoint: `${backendUrl}/report/snapshots`,
+          endpoint: desiredEndpoint,
           method: "POST",
           format: "txt",
-          headers: `Content-Type: text/plain\nX-API-Key: ${apiKey}`,
+          headers: desiredHeaders,
         },
       },
       minSeverity: 0,
