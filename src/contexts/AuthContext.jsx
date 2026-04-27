@@ -170,7 +170,12 @@ export function AuthProvider({ children }) {
       return;
     }
 
-    try { await registerNotificationProfile(); } catch { /* ignore */ }
+    try {
+      const r = await registerNotificationProfile();
+      if (!r?.ok) {
+        console.warn("[vaultkeeper] notification setup not verified:", r?.status, r?.error || "");
+      }
+    } catch { /* ignore */ }
 
     let repoDesc = "";
     try { const st = await axios.get("/api/v1/repo/status"); repoDesc = st.data?.description || ""; } catch { /* ignore */ }

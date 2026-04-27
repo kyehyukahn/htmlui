@@ -4,79 +4,103 @@ import { getVaultkeeperBackendUrl } from "./vaultkeeperApi";
 const PROFILE_NAME = "vaultkeeper-report";
 
 /**
- * Kopia 에 Vaultkeeper 용 Notification Profile 이 등록되어 있는지 확인한 뒤,
- * 없으면 생성한다.
+ * Kopia 에 Vaultkeeper 용 Notification Profile 을 등록·갱신하고, 마지막에
+ * webhook reachability 를 테스트한다.
  *
- * Data source hierarchy 원칙:
- *   1차 조회는 **kopia** — GET /api/v1/notificationProfiles (목록)
- *     · 응답에 PROFILE_NAME 이 있으면 이미 등록됨. 끝.
- *     · 없으면 POST 로 신규 등록.
- *     · 네트워크/인증 에러 → best-effort, 로그만 남기고 return.
+ * 반환값 (caller 가 가시성을 위해 사용):
+ *   { ok: true,  status: "verified" }
+ *   { ok: false, status: "no-apikey" | "list-failed" | "delete-failed"
+ *                       | "register-failed" | "test-failed",
+ *                error?: string }
  *
- * 단일 프로필 조회 (GET /notificationProfiles/{name}) 는 미등록 시 kopia 가
- * HTTP 500 ("internal server error: profile not found") 을 반환하므로 404 만으로
- * "미등록"을 판별할 수 없다. 목록 endpoint 는 항상 200 + (null|배열) 을 돌려주므로
- * 상태 코드 해석에 의존하지 않고 안전하게 비교 가능하다.
+ * 단계:
+ *   1. apiKey 확인
+ *   2. GET /api/v1/notificationProfiles — kopia 1차 소스
+ *   3. 멱등성 / stale 검사
+ *      · 동일한 endpoint + headers → no-op
+ *      · 다른 값 → DELETE 후 재등록
+ *      · 미존재 → 신규 등록
+ *   4. POST /api/v1/testNotificationProfile — 동일 config 로 실 webhook 발사,
+ *      backend 까지 도달 검증. backend 의 P1-2 가드 (Path 없으면 silent ignore)
+ *      가 200 으로 응답하므로 kopia 도 200 으로 성공 보고.
  *
- * 이전 버전에서는 localStorage 의 "vaultkeeper-notificationRegistered" 플래그로
- * 중복 호출을 막았는데 — 그 플래그가 kopia 실제 상태와 괴리되면 사용자가
- * 프로필을 수동 삭제해도 우리는 모르고 영원히 재등록 안 하는 버그가 발생.
- * 이제 kopia 가 1차 소스이므로 플래그는 사용하지 않는다.
+ * 반환값을 받는 쪽 (AuthContext) 은 status 별로 사용자에게 다른 진단 메시지를
+ * 보여줄 수 있다 (e.g., test-failed 는 네트워크/DNS/방화벽).
  */
 export async function registerNotificationProfile() {
   const apiKey = localStorage.getItem("vaultkeeper-apiKey");
-  if (!apiKey) return;
+  if (!apiKey) return { ok: false, status: "no-apikey" };
   const backendUrl = getVaultkeeperBackendUrl();
 
-  // 1차: kopia 프로필 목록을 받아서 PROFILE_NAME 존재 여부 확인
   let profiles = [];
   try {
     const { data } = await axios.get("/api/v1/notificationProfiles");
     profiles = Array.isArray(data) ? data : [];
   } catch (err) {
-    console.warn("[vaultkeeper] notification profile list failed:", err);
-    return;
+    const error = errMessage(err);
+    console.warn("[vaultkeeper] notification profile list failed:", error);
+    return { ok: false, status: "list-failed", error };
   }
 
-  // 멱등성 + endpoint/apiKey 변화 감지:
-  // 프로필 이름만으로는 부족 — backend URL 이 dev → prod 로 바뀌거나 사용자 재발급으로
-  // apiKey 가 변하면, 옛 프로필 그대로 두면 webhook 이 잘못된 곳으로 영원히 발사된다.
-  // → endpoint + headers 가 모두 일치할 때만 idempotent 로 간주, 아니면 DELETE 후 재등록.
   const desiredEndpoint = `${backendUrl}/report/snapshots`;
   const desiredHeaders = `Content-Type: text/plain\nX-API-Key: ${apiKey}`;
+  const profileBody = {
+    profile: PROFILE_NAME,
+    method: {
+      type: "webhook",
+      config: {
+        endpoint: desiredEndpoint,
+        method: "POST",
+        format: "txt",
+        headers: desiredHeaders,
+      },
+    },
+    minSeverity: 0,
+  };
+
   const existing = profiles.find((p) => p?.profile === PROFILE_NAME);
+  let needsRegister = !existing;
+
   if (existing) {
     const currentEndpoint = existing?.method?.config?.endpoint;
     const currentHeaders = existing?.method?.config?.headers;
-    if (currentEndpoint === desiredEndpoint && currentHeaders === desiredHeaders) {
-      return; // 진짜로 동일 → no-op
-    }
-    try {
-      await axios.delete(`/api/v1/notificationProfiles/${PROFILE_NAME}`);
-      console.log("[vaultkeeper] Stale notification profile removed (endpoint/apiKey changed)");
-    } catch (err) {
-      console.warn("[vaultkeeper] Stale notification profile delete failed:", err);
-      return; // POST 가 ALREADY_EXISTS 로 깨질 수 있어 중단
+    if (currentEndpoint !== desiredEndpoint || currentHeaders !== desiredHeaders) {
+      try {
+        await axios.delete(`/api/v1/notificationProfiles/${PROFILE_NAME}`);
+        console.log("[vaultkeeper] Stale notification profile removed (endpoint/apiKey changed)");
+        needsRegister = true;
+      } catch (err) {
+        const error = errMessage(err);
+        console.warn("[vaultkeeper] Stale notification profile delete failed:", error);
+        return { ok: false, status: "delete-failed", error };
+      }
     }
   }
 
-  // 2차: kopia 에 등록
-  try {
-    await axios.post("/api/v1/notificationProfiles", {
-      profile: PROFILE_NAME,
-      method: {
-        type: "webhook",
-        config: {
-          endpoint: desiredEndpoint,
-          method: "POST",
-          format: "txt",
-          headers: desiredHeaders,
-        },
-      },
-      minSeverity: 0,
-    });
-    console.log("[vaultkeeper] Notification profile registered");
-  } catch (err) {
-    console.warn("[vaultkeeper] Notification profile registration failed:", err);
+  if (needsRegister) {
+    try {
+      await axios.post("/api/v1/notificationProfiles", profileBody);
+      console.log("[vaultkeeper] Notification profile registered");
+    } catch (err) {
+      const error = errMessage(err);
+      console.warn("[vaultkeeper] Notification profile registration failed:", error);
+      return { ok: false, status: "register-failed", error };
+    }
   }
+
+  // Reachability test — webhook 이 backend 까지 실제로 도달하는지 확인.
+  // kopia 가 testNotificationProfile 에서 실 webhook 을 발사 → backend 가 200 응답해야 통과.
+  try {
+    await axios.post("/api/v1/testNotificationProfile", profileBody);
+    console.log("[vaultkeeper] Webhook reachability verified");
+    return { ok: true, status: "verified" };
+  } catch (err) {
+    const error = errMessage(err);
+    console.warn("[vaultkeeper] Webhook reachability test failed:", error);
+    return { ok: false, status: "test-failed", error };
+  }
+}
+
+function errMessage(err) {
+  return err?.response?.data?.error || err?.message || String(err);
 }
