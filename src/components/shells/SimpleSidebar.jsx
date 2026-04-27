@@ -4,6 +4,7 @@ import { NavLink } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faCameraRetro, faListCheck } from "@fortawesome/free-solid-svg-icons";
 import { AuthContext } from "../../contexts/AuthContext";
+import { APP_VERSION } from "../../constants";
 
 const DEFAULT_ITEMS = [
   { to: "/snapshots", label: "Snapshots", icon: faCameraRetro, needsRepo: true, badgeFrom: null },
@@ -54,8 +55,11 @@ export function SimpleSidebar({ items = DEFAULT_ITEMS }) {
           );
         })}
       </nav>
-      <div className="vk-sidebar-footer">
-        v{import.meta.env.VITE_FULL_VERSION_INFO || "dev"}
+      <div
+        className="vk-sidebar-footer"
+        title={import.meta.env.VITE_FULL_VERSION_INFO || ""}
+      >
+        v{APP_VERSION}
       </div>
     </aside>
   );

@@ -4,6 +4,7 @@ import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { SimpleSidebar } from "../../../src/components/shells/SimpleSidebar";
 import { AuthContext } from "../../../src/contexts/AuthContext";
+import { APP_VERSION } from "../../../src/constants";
 
 it("renders only Snapshots and Tasks links", () => {
   render(<AuthContext.Provider value={{ runningTaskCount: 2 }}>
@@ -14,4 +15,11 @@ it("renders only Snapshots and Tasks links", () => {
   expect(screen.queryByText(/Repository/)).toBeNull();
   expect(screen.queryByText(/Policies/)).toBeNull();
   expect(screen.queryByText(/Preferences/)).toBeNull();
+});
+
+it("renders the app version in the sidebar footer", () => {
+  render(<AuthContext.Provider value={{}}>
+    <MemoryRouter><SimpleSidebar /></MemoryRouter>
+  </AuthContext.Provider>);
+  expect(screen.getByText(new RegExp(`v${APP_VERSION.replace(/\./g, "\\.")}`))).toBeTruthy();
 });

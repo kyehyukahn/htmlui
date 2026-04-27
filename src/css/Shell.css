@@ -353,6 +353,14 @@
   font-size: 0.875rem;
 }
 
+.vk-login-version {
+  margin-top: 1rem;
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--vk-text-muted);
+  font-family: var(--vk-font-mono);
+}
+
 /* -------------------------------------------------------------------------- */
 /* Page content skin — mimics vaultkeeper-frontend DataTable / card styles.   */
 /* Scoped strictly to .vk-shell-main so it does not leak into FullShell.      */

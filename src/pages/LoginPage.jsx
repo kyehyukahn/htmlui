@@ -5,6 +5,7 @@ import Button from "react-bootstrap/Button";
 import Form from "react-bootstrap/Form";
 import Spinner from "react-bootstrap/Spinner";
 import { AuthContext } from "../contexts/AuthContext";
+import { APP_VERSION } from "../constants";
 
 export function LoginPage() {
   const ctx = useContext(AuthContext);
@@ -67,6 +68,13 @@ export function LoginPage() {
                 : "Sign in"}
           </Button>
         </Form>
+
+        <div
+          className="vk-login-version"
+          title={import.meta.env.VITE_FULL_VERSION_INFO || ""}
+        >
+          v{APP_VERSION}
+        </div>
       </div>
     </div>
   );

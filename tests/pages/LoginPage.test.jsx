@@ -6,6 +6,7 @@ import axios from "axios";
 import MockAdapter from "axios-mock-adapter";
 import { LoginPage } from "../../src/pages/LoginPage";
 import { AuthContext } from "../../src/contexts/AuthContext";
+import { APP_VERSION } from "../../src/constants";
 
 let mock;
 beforeEach(() => { mock = new MockAdapter(axios); localStorage.clear(); });
@@ -52,5 +53,11 @@ describe("LoginPage", () => {
     renderWithCtx({ status: "bootstrapping", error: null, login: vi.fn() });
     const btn = screen.getByRole("button");
     expect(btn.hasAttribute("disabled")).toBe(true);
+  });
+
+  it("renders the app version in the login card footer", () => {
+    mock.onGet("/api/v1/current-user").reply(200, {});
+    renderWithCtx({ status: "unauthenticated", error: null, login: vi.fn() });
+    expect(screen.getByText(new RegExp(`v${APP_VERSION.replace(/\./g, "\\.")}`))).toBeTruthy();
   });
 });
