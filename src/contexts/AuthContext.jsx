@@ -55,6 +55,20 @@ function clearAllVaultkeeperKeys() {
   runLegacyKeyCleanup();
 }
 
+/**
+ * Forward apiKey state to Electron main process via the preload bridge so that
+ * electron-updater can authenticate against backend's update feed and the tray
+ * "Check For Updates Now" item can enable/disable accordingly. No-op when
+ * running outside Electron (e.g., dev `vite` server in browser) — htmlui's
+ * other paths don't depend on it.
+ */
+function pushApiKeyToElectron(apiKey) {
+  try { window.vaultkeeper?.setApiKey?.(apiKey); } catch { /* ignore */ }
+}
+function clearApiKeyFromElectron() {
+  try { window.vaultkeeper?.clearApiKey?.(); } catch { /* ignore */ }
+}
+
 export function AuthProvider({ children }) {
   // Derive initial status synchronously from localStorage so the very first
   // render does NOT flash LoginPage when a session is about to be restored.
@@ -93,6 +107,7 @@ export function AuthProvider({ children }) {
           // (~/Library/Application Support/kopia/repository.config + the
           // adjacent .kopia-password file). We never need to re-send S3
           // credentials from the browser for this path.
+          pushApiKeyToElectron(apiKey);
           set({
             status: "authenticated",
             apiKey, clientId, simplifyMode, userEmail,
@@ -180,6 +195,8 @@ export function AuthProvider({ children }) {
     let repoDesc = "";
     try { const st = await axios.get("/api/v1/repo/status"); repoDesc = st.data?.description || ""; } catch { /* ignore */ }
 
+    pushApiKeyToElectron(data.apiKey);
+
     set({
       status: "authenticated",
       error: null,
@@ -193,6 +210,7 @@ export function AuthProvider({ children }) {
     });
   }, [set]);
   const logout = useCallback(async () => {
+    clearApiKeyFromElectron();
     await performClientLogout();
     setState({ ...INIT_STATE, status: "unauthenticated" });
   }, []);
