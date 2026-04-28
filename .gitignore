@@ -2,5 +2,8 @@ build/
 node_modules/
 coverage/
 .idea/
+# env files — 모든 .env* 차단, .env.sample template 만 추적
 .env
+.env.*
+!.env.sample
 .DS_Store
