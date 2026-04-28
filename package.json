@@ -19,8 +19,8 @@
   },
   "scripts": {
     "start": "vite",
-    "build": "vite build --mode local",
-    "build:local": "vite build --mode local",
+    "build": "vite build --mode localhost",
+    "build:local": "vite build --mode localhost",
     "build:dev": "vite build --mode development",
     "build:stg": "vite build --mode staging",
     "build:prod": "vite build --mode production",
